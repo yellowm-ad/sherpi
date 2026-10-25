@@ -1,7 +1,8 @@
 # 디자인 시스템
 
-> **강아지를 자유롭게** — 푸른색 + 흰색
+> **강아지를 자유롭게** — Modern Soft-Tech (2026-10-25 스티치 안 반영)
 
+원본: 저장소 루트의 `DESIGN.md`(스티치 디자인 시스템), `code.html`(스티치 홈 시안), `로고 디자인.png`.
 먹메이트(살구 오렌지·진갈색·크림)와 명확히 구분되는 톤입니다.
 
 ---
@@ -9,30 +10,52 @@
 ## 컬러 토큰
 
 정의는 `src/app/globals.css` 의 `@theme` 블록.
-**색상을 하드코딩하지 말고 토큰을 쓰세요.**
+**색상을 하드코딩하지 말고 토큰을 쓰세요.** 카카오맵처럼 CSS 변수를 못 읽는 곳만 `MAP_COLOR`(`components/map/RouteMap.tsx`)·`CROWD_HEX` 를 씁니다.
 
 | 토큰 | 값 | 용도 |
 |---|---|---|
-| `--color-sherpy-600` | `#2563EB` | 메인. 버튼, 활성 탭, 포인트 |
-| `--color-sherpy-700` | `#1D4ED8` | 눌린 상태 |
-| `--color-sherpy-100` | `#DBEAFE` | 연한 배경, 보조 텍스트 (파란 배경 위) |
-| `--color-sherpy-50` | `#EFF6FF` | 아주 연한 면 |
-| `--color-accent` | `#06B6D4` | 주행 중 / 활성 표시 |
+| `--color-sherpy-600` | `#2B66FF` | Primary Cobalt. 버튼, 활성 탭, GPS 경로 |
+| `--color-sherpy-700` | `#1E4ED8` | Deep Cobalt. 눌림, 강조 라벨 |
+| `--color-sherpy-400` | `#6E8EFF` | 그라데이션 끝, 선택 안 된 코스 선 |
+| `--color-sherpy-100` | `#DCE1FF` | 파란 배경 위 보조 글자 |
+| `--color-sherpy-50` | `#EFF6FF` | surface-subtle — 지표 카드·팁 |
+| `--color-mint` | `#00D287` | Emerald Mint 점·면 (여유·안정·출발점) |
+| `--color-mint-700` | `#006D43` | 흰 바탕 위 민트 글자 (원색은 글자 대비 부족) |
+| `--color-mint-50` | `#ECFDF5` | 민트 배경 (좋은 신호) |
+| `--color-accent` | `#00875A` | 주행 중 / 자동주행 가능 |
 | `--color-surface` | `#FFFFFF` | 카드 |
 | `--color-bg` | `#F8FAFC` | 페이지 배경 |
 | `--color-line` | `#E2E8F0` | 테두리, 구분선 |
-| `--color-ink` | `#0F172A` | 제목 |
-| `--color-body` | `#334155` | 본문 |
+| `--color-ink` | `#1A202C` | 제목 (순검정 대신 차콜 네이비) |
+| `--color-body` | `#434655` | 본문 |
 | `--color-muted` | `#64748B` | 보조 |
+
+### 그림자 · 모양
+
+| 이름 | 쓰는 곳 |
+|---|---|
+| `shadow-soft` (Level 1) | `.card` 기본 — 목록·비활성 카드 |
+| `shadow-lift` (Level 2) | `.card-lift`, 히어로, 검색창 — 지금 봐야 하는 것 |
+| `shadow-float` (Level 3) | 바텀시트, 드롭다운, 비상 버튼 |
+| 반경 16px | `.card` |
+| 반경 24px | `.card-lift`, 히어로, 하단 탭 상단 |
+| 알약(full) | 버튼, 칩(`.chip`), 검색창, 상태 배지 |
+
+### 공용 클래스
+
+- `.chip` / `.chip[data-active="true"]` — 필터·장소 칩
+- `.metric` — 지표 숫자 (24px / 800 / -0.02em, 고정폭)
+- `AppHeader` — 로고 + 셰르피 연결 알약 (홈)
+- `RouteThumb` — 코스 카드 머리의 실제 코스 모양 썸네일
 
 ### 안전등급 (로봇 대시보드 전용)
 
 | 등급 | 토큰 | 값 | 의미 |
 |---|---|---|---|
-| L0 | `--color-level-0` | `#16A34A` | 정상 |
-| L1 | `--color-level-1` | `#CA8A04` | 주의 |
+| L0 | `--color-level-0` | `#00A86B` | 정상 |
+| L1 | `--color-level-1` | `#D97706` | 주의 |
 | L2 | `--color-level-2` | `#EA580C` | 경고 |
-| L3 | `--color-level-3` | `#DC2626` | 정지 |
+| L3 | `--color-level-3` | `#EF4444` | 정지 |
 
 > **접근성**: 안전등급을 색상만으로 구분하지 마세요.
 > `SafetyBadge` 처럼 `L2 · 경고` 식으로 **텍스트를 함께** 씁니다.
@@ -41,7 +64,7 @@
 
 ## 타이포그래피
 
-- 본문: **Pretendard** (한글 가독성)
+- 라틴·숫자: **Plus Jakarta Sans** (DESIGN.md), 한글: **Pretendard** — Jakarta 에 한글이 없어서 둘을 겹쳐 쓴다
 - 실시간으로 갱신되는 숫자에는 **반드시** `className="tabular"` 를 붙입니다.
 
 ```tsx

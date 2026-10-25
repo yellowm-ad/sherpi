@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Heart, Send, Clock, Ruler, Mountain, Info, Check, Trash2, Pencil } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
-import RouteMap from "@/components/map/RouteMap";
+import RouteMap, { MAP_COLOR } from "@/components/map/RouteMap";
 import Sheet from "@/components/ui/Sheet";
 import { sendCommand } from "@/hooks/useRobotStream";
 import { ROUTES, routeLength, routeDurationMin, POI_LABEL } from "@/lib/demo/data";
@@ -26,7 +26,7 @@ export default function RouteDetail({ params }: { params: Promise<{ id: string }
   const [sendOpen, setSendOpen] = useState(false);
   const [sent, setSent] = useState(false);
 
-  const lines = useMemo(() => (r ? [{ id: r.id, points: r.points, color: "#2563EB", weight: 6 }] : []), [r]);
+  const lines = useMemo(() => (r ? [{ id: r.id, points: r.points, color: MAP_COLOR.route, weight: 6 }] : []), [r]);
   const markers = useMemo(
     () => (r ? r.pois.map((p) => ({ lat: p.lat, lng: p.lng, label: `${POI_LABEL[p.type]} · ${p.label}` })) : []),
     [r],

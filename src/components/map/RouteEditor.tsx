@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Undo2, Trash2, Check, X, RefreshCcw, Info } from "lucide-react";
-import RouteMap, { type MapFocus } from "@/components/map/RouteMap";
+import RouteMap, { MAP_COLOR, type MapFocus } from "@/components/map/RouteMap";
 import PlaceSearch, { type Place } from "@/components/map/PlaceSearch";
 import { DEOKJIN } from "@/components/weather/WalkScoreCard";
 import { POI_LABEL, distM, routeLength, type DemoRoute, type PoiType } from "@/lib/demo/data";
@@ -89,7 +89,7 @@ export default function RouteEditor({ initial, start, draftKey, saveLabel, saved
     setFocus({ lat: p.lat, lng: p.lng, level: 3, key: Date.now() });
   };
 
-  const lines = useMemo(() => [{ id: "edit", points, color: "#2563EB", weight: 6 }], [points]);
+  const lines = useMemo(() => [{ id: "edit", points, color: MAP_COLOR.route, weight: 6 }], [points]);
   const markers = useMemo(() => [
     ...points.map((p, i) => ({ lat: p[0], lng: p[1], label: `경유점 ${i + 1}`, kind: "point" as const })),
     ...pois.map((p) => ({ lat: p.lat, lng: p.lng, label: POI_LABEL[p.type] })),

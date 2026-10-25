@@ -15,6 +15,14 @@ export interface MapFocus { lat: number; lng: number; level?: number; key: numbe
 export interface MapCircle { lat: number; lng: number; radius: number; color: string; label?: string }
 
 const KEY = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY;
+
+/** 지도 위 색 — 카카오맵은 CSS 변수를 못 읽어서 globals.css 토큰 값을 여기 그대로 옮겨 둔다 (바꿀 땐 둘 다) */
+export const MAP_COLOR = {
+  route: "#2B66FF",     // --color-sherpy-600 — 코스 선
+  routeDeep: "#1E4ED8", // --color-sherpy-700
+  routeAlt: "#6E8EFF",  // --color-sherpy-400 — 선택 안 된 다른 코스
+  trail: "#00B574",     // 민트 — 실제로 걸은 길·로봇 위치
+} as const;
 let loader: Promise<any> | null = null;
 
 /** 카카오맵 SDK를 한 번만 로드한다 (autoload=false → kakao.maps.load). services = 장소·주소 검색 */
@@ -41,7 +49,7 @@ function loadKakao(): Promise<any> {
 export function loadKakaoMaps() { return loadKakao(); }
 
 // 끌어서 옮길 수 있는 경유점 — CustomOverlay 는 드래그가 안 돼서 Marker + 작은 원 이미지를 쓴다
-const DOT = `data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"><circle cx="11" cy="11" r="7" fill="#2563EB" stroke="#fff" stroke-width="3"/></svg>')}`;
+const DOT = `data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"><circle cx="11" cy="11" r="7" fill="${MAP_COLOR.route}" stroke="#fff" stroke-width="3"/></svg>')}`;
 
 export default function RouteMap({
   center, level = 4, lines = [], markers = [], circles = [], fitTo, fitPad = [40, 40, 40, 40], focus, onMapClick, onPointDrag, className = "h-64",
@@ -136,12 +144,12 @@ export default function RouteMap({
       }
       const style =
         m.kind === "robot"
-          ? "width:18px;height:18px;border-radius:99px;background:#06B6D4;border:3px solid #fff;box-shadow:0 0 0 6px rgba(6,182,212,.3)"
+          ? `width:18px;height:18px;border-radius:99px;background:${MAP_COLOR.trail};border:3px solid #fff;box-shadow:0 0 0 6px rgba(0,181,116,.28)`
           : m.kind === "point"
-          ? "width:12px;height:12px;border-radius:99px;background:#2563EB;border:2px solid #fff"
+          ? `width:12px;height:12px;border-radius:99px;background:${MAP_COLOR.route};border:2px solid #fff`
           : m.kind === "place"
-          ? "font:700 12px Pretendard,sans-serif;background:#1D4ED8;color:#fff;padding:5px 10px;border-radius:99px;box-shadow:0 2px 6px rgba(0,0,0,.25);white-space:nowrap"
-          : "font:600 11px Pretendard,sans-serif;background:#fff;color:#1D4ED8;padding:3px 8px;border-radius:99px;border:1px solid #DBEAFE;box-shadow:0 1px 3px rgba(0,0,0,.12);white-space:nowrap";
+          ? `font:700 12px Pretendard,sans-serif;background:${MAP_COLOR.routeDeep};color:#fff;padding:5px 12px;border-radius:99px;box-shadow:0 8px 24px rgba(43,102,255,.25);white-space:nowrap`
+          : `font:600 11px Pretendard,sans-serif;background:#fff;color:${MAP_COLOR.routeDeep};padding:3px 9px;border-radius:99px;border:1px solid #DCE1FF;box-shadow:0 2px 8px rgba(26,32,44,.08);white-space:nowrap`;
       drawn.current.push(new kakao.maps.CustomOverlay({
         map: map.current, position: LL(m.lat, m.lng), yAnchor: m.kind === "poi" || !m.kind ? 1.3 : 0.5,
         content: m.kind === "robot" || m.kind === "point" ? `<div title="${m.label}" style="${style}"></div>` : `<div style="${style}">${m.label}</div>`,
@@ -150,22 +158,52 @@ export default function RouteMap({
   }, [ready, lines, markers, circles]);
 
   // 화면 맞춤은 fitTo 가 바뀔 때만 — 그리는 중에 선이 바뀔 때마다 지도가 튀지 않게
-  useEffect(() => {
+  // 마지막으로 요청된 화면 — 크기가 바뀌어 다시 맞출 때 이걸 다시 적용한다 (검색 이동을 코스 맞춤이 덮지 않게)
+  const lastView = useRef<"fit" | "focus">("fit");
+  const fitRef = useRef<() => void>(() => {});
+  fitRef.current = () => {
     const kakao = window.kakao;
-    if (!ready || !map.current || !kakao || !fitTo || fitTo.length < 2) return;
+    if (!map.current || !kakao || !fitTo || fitTo.length < 2) return;
     const b = new kakao.maps.LatLngBounds();
     fitTo.forEach((p) => b.extend(new kakao.maps.LatLng(p[0], p[1])));
     map.current.setBounds(b, ...fitPad);
+  };
+  useEffect(() => {
+    if (!ready || !fitTo) return;
+    lastView.current = "fit";
+    fitRef.current();
     // 여백은 화면마다 고정값이라 fitTo 가 바뀔 때만 맞춘다
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, fitTo]);
 
-  // 검색한 곳으로 이동
+  // 컨테이너 크기가 바뀌면(등장 애니메이션·회전·키보드) 지도를 다시 깔고 코스를 다시 맞춘다
+  // — 안 그러면 처음 잡힌 작은 크기대로 가운데만 그려지고 나머지는 회색으로 남는다
   useEffect(() => {
+    if (!ready || !el.current || typeof ResizeObserver === "undefined") return;
+    let last = "";
+    const ro = new ResizeObserver(([e]) => {
+      const size = `${Math.round(e.contentRect.width)}x${Math.round(e.contentRect.height)}`;
+      if (size === last) return;
+      last = size;
+      map.current?.relayout();
+      if (lastView.current === "focus") focusRef.current();
+      else fitRef.current();
+    });
+    ro.observe(el.current);
+    return () => ro.disconnect();
+  }, [ready]);
+
+  // 검색한 곳으로 이동
+  const focusRef = useRef<() => void>(() => {});
+  focusRef.current = () => {
     const kakao = window.kakao;
-    if (!ready || !map.current || !kakao || !focus) return;
+    if (!map.current || !kakao || !focus) return;
     if (focus.level) map.current.setLevel(focus.level);
-    map.current.panTo(new kakao.maps.LatLng(focus.lat, focus.lng));
+    map.current.setCenter(new kakao.maps.LatLng(focus.lat, focus.lng));
+  };
+  useEffect(() => {
+    if (!ready || !focus) return;
+    lastView.current = "focus";
+    focusRef.current();
   }, [ready, focus]);
 
   if (err) {

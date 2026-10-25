@@ -103,6 +103,9 @@ export const CROWD = [
 ];
 
 export const CROWD_LABEL = ["", "여유", "보통", "혼잡"] as const;
+/** 혼잡도 색 (DESIGN.md Congestion Badges) — 지도 원은 hex, 화면 배지는 클래스 */
+export const CROWD_HEX = ["", "#00B574", "#F59E0B", "#EF4444"] as const;
+export const CROWD_BADGE = ["", "bg-mint-50 text-mint-700", "bg-level-1/10 text-level-1", "bg-level-3/10 text-level-3"] as const;
 
 export const DOG = {
   name: "콩이",

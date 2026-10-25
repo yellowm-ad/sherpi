@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Square, Video } from "lucide-react";
 import Link from "next/link";
-import RouteMap from "@/components/map/RouteMap";
+import RouteMap, { MAP_COLOR } from "@/components/map/RouteMap";
 import SafetyBadge from "@/components/robot/SafetyBadge";
 import EstopButton from "@/components/robot/EstopButton";
 import Sheet from "@/components/ui/Sheet";
@@ -99,8 +99,8 @@ export default function LiveWalk() {
 
   const route = findRoute(latest?.routeId ?? 12) ?? ROUTES[0];
   const lines = useMemo(() => [
-    { id: "plan", points: route.points, color: "#93C5FD", weight: 5, dashed: true },
-    { id: "trail", points: trail, color: "#06B6D4", weight: 6 },
+    { id: "plan", points: route.points, color: MAP_COLOR.routeAlt, weight: 5, dashed: true },
+    { id: "trail", points: trail, color: MAP_COLOR.trail, weight: 6 },
   ], [route, trail]);
   const markers = useMemo(() => latest?.lat != null ? [{ lat: latest.lat, lng: latest.lng!, label: "셰르피", kind: "robot" as const }] : [], [latest?.lat, latest?.lng]);
 

@@ -1,20 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
+import { use, useMemo, useRef, useState } from "react";
 import { Plus, Users, Heart, Lock, LogIn, Pencil, X, PenLine } from "lucide-react";
-import RouteMap, { type MapFocus } from "@/components/map/RouteMap";
+import RouteMap, { MAP_COLOR, type MapFocus } from "@/components/map/RouteMap";
 import PlaceSearch, { type Place } from "@/components/map/PlaceSearch";
 import { DEOKJIN } from "@/components/weather/WalkScoreCard";
-import { ROUTES, CROWD, CROWD_LABEL, routeLength, routeDurationMin, type DemoRoute } from "@/lib/demo/data";
+import { ROUTES, CROWD, CROWD_LABEL, CROWD_HEX, routeLength, routeDurationMin, type DemoRoute } from "@/lib/demo/data";
 import { useMyRoutes } from "@/lib/my-routes";
 import { useUser } from "@/lib/session";
 
-const ROUTE_COLORS = ["#2563EB", "#06B6D4", "#1D4ED8"];
-const CROWD_COLOR = ["", "#16A34A", "#CA8A04", "#DC2626"];
+const ROUTE_COLORS = [MAP_COLOR.route, MAP_COLOR.trail, MAP_COLOR.routeDeep];
+const CROWD_COLOR = CROWD_HEX;
 
 /** S07 지도 — 코스 탐색(추천 / 내 코스) + 장소 검색 + 혼잡도(명목상) (PRD F-4, F-9) */
-export default function MapPage() {
+export default function MapPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+  const { q } = use(searchParams);
   const user = useUser();
   const mine = useMyRoutes();
   const [tab, setTab] = useState<"pub" | "mine">("pub");
@@ -82,7 +83,7 @@ export default function MapPage() {
 
       {/* 상단 컨트롤 — 검색 / 탭·혼잡도 / 코스 만들기 */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 space-y-2 p-3">
-        <PlaceSearch onPick={onPlace} near={sel?.points[0] ?? [DEOKJIN.lat, DEOKJIN.lng]} />
+        <PlaceSearch onPick={onPlace} initialQuery={q} near={sel?.points[0] ?? [DEOKJIN.lat, DEOKJIN.lng]} />
         <div className="flex items-center gap-2">
           <div className="pointer-events-auto flex flex-1 rounded-2xl bg-surface/95 p-1 shadow-md backdrop-blur">
             {([["pub", "추천 코스"], ["mine", `내 코스${user ? ` ${mine.length}` : ""}`]] as const).map(([k, label]) => (

@@ -3,7 +3,7 @@
 import { use, useMemo } from "react";
 import { TriangleAlert } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
-import RouteMap from "@/components/map/RouteMap";
+import RouteMap, { MAP_COLOR } from "@/components/map/RouteMap";
 import { routeById } from "@/lib/demo/data";
 import { findRoute } from "@/lib/my-routes";
 import { useWalks, isLocalWalk } from "@/lib/my-walks";
@@ -17,7 +17,7 @@ export default function WalkDetail({ params }: { params: Promise<{ id: string }>
   const r = w ? routeById(w.routeId) ?? findRoute(w.routeId) : undefined;
   // 내가 기록한 산책은 실제로 지나간 궤적을, 시연 기록은 코스 선을 그린다
   const path = w?.trail && w.trail.length > 1 ? w.trail : r?.points;
-  const lines = useMemo(() => (path ? [{ id: "walk", points: path, color: "#06B6D4", weight: 6 }] : []), [path]);
+  const lines = useMemo(() => (path ? [{ id: "walk", points: path, color: MAP_COLOR.trail, weight: 6 }] : []), [path]);
 
   if (!w || !path) return <><PageHeader title="산책 기록" back /><p className="p-6 text-center text-muted">기록이 없습니다.</p></>;
   const d = new Date(w.startedAt);

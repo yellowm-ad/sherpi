@@ -1,39 +1,49 @@
 @import "tailwindcss";
 
 /* ═══════════════════════════════════════════════
-   셰르피 디자인 토큰 — 푸른색 + 흰색
+   셰르피 디자인 토큰 — Modern Soft-Tech (DESIGN.md, 2026-10-25 스티치 안)
+   코발트 블루(기술·연결) + 에메랄드 민트(활력·안전) + 차콜 네이비(글자)
    먹메이트(살구 오렌지)와 명확히 구분
    ═══════════════════════════════════════════════ */
 @theme {
-  /* Primary — 신뢰 · 하늘 · 자유 */
-  --color-sherpy-50:  #EFF6FF;
-  --color-sherpy-100: #DBEAFE;
-  --color-sherpy-400: #60A5FA;
-  --color-sherpy-600: #2563EB;  /* 메인 */
-  --color-sherpy-700: #1D4ED8;
-  --color-sherpy-900: #172554;
+  /* Primary — Cobalt Blue */
+  --color-sherpy-50:  #EFF6FF;  /* surface-subtle — 연한 지표 카드·팁 */
+  --color-sherpy-100: #DCE1FF;
+  --color-sherpy-400: #6E8EFF;
+  --color-sherpy-600: #2B66FF;  /* 메인 — 버튼·활성·GPS 경로 */
+  --color-sherpy-700: #1E4ED8;  /* Deep Cobalt — 눌림·강조 라벨 */
+  --color-sherpy-900: #00164E;
 
-  /* Accent — 주행 중 / 활성 */
-  --color-accent: #06B6D4;
+  /* Secondary — Emerald Mint: 자동주행 가능·여유·좋음 같은 "괜찮다" 신호 */
+  --color-mint:     #00D287;    /* 점·면 */
+  --color-mint-700: #006D43;    /* 흰 바탕 위 글자 (민트 원색은 글자로 쓰기엔 대비가 낮다) */
+  --color-mint-50:  #ECFDF5;
+  --color-accent:   #00875A;    /* 주행 중 / 활성 표시 — 민트 계열, 작은 글자도 읽히게 한 단계 진하게 */
 
   /* Surface */
-  --color-surface: #FFFFFF;
-  --color-bg:      #F8FAFC;
+  --color-surface: #FFFFFF;     /* surface-card */
+  --color-bg:      #F8FAFC;     /* surface-canvas */
   --color-line:    #E2E8F0;
 
-  /* Text */
-  --color-ink:     #0F172A;
-  --color-body:    #334155;
+  /* Text — 순검정 대신 차콜 네이비 */
+  --color-ink:     #1A202C;
+  --color-body:    #434655;
   --color-muted:   #64748B;
-  --color-overlay: rgb(15 23 42 / 0.5);
+  --color-overlay: rgb(26 32 44 / 0.5);
 
-  /* 안전등급 L0~L3 — 로봇 대시보드 전용 */
-  --color-level-0: #16A34A;
-  --color-level-1: #CA8A04;
+  /* 안전등급 L0~L3 — 로봇 대시보드 전용 (색만으로 구분하지 말 것: SafetyBadge 처럼 글자 병기) */
+  --color-level-0: #00A86B;
+  --color-level-1: #D97706;     /* status-caution */
   --color-level-2: #EA580C;
-  --color-level-3: #DC2626;
+  --color-level-3: #EF4444;     /* status-alert */
 
-  --font-sans: "Pretendard Variable", Pretendard, -apple-system, system-ui, sans-serif;
+  /* 그림자 — 검은 그림자 대신 푸른 기가 도는 부드러운 그림자 (Soft Luminous Planes) */
+  --shadow-soft:  0 2px 8px rgb(26 32 44 / 0.04);                                   /* Level 1 — 목록·비활성 카드 */
+  --shadow-lift:  0 8px 24px rgb(43 102 255 / 0.08), 0 2px 6px rgb(26 32 44 / 0.04); /* Level 2 — 활성 카드·HUD */
+  --shadow-float: 0 16px 36px rgb(26 32 44 / 0.12);                                 /* Level 3 — 시트·비상 버튼 */
+
+  /* 글꼴 — 라틴·숫자는 Plus Jakarta Sans, 한글은 Pretendard 가 받는다 (Jakarta 에는 한글이 없다) */
+  --font-sans: "Plus Jakarta Sans", "Pretendard Variable", Pretendard, -apple-system, system-ui, sans-serif;
 }
 
 :root { color-scheme: light; }
@@ -63,12 +73,32 @@ body {
 /* 최소 터치 영역 44×44 */
 .touch { min-width: 44px; min-height: 44px; }
 
-/* 카드 기본형 */
+/* 카드 기본형 — Container Radius 16px + Level 1 그림자 */
 .card {
   background: var(--color-surface);
   border: 1px solid var(--color-line);
   border-radius: 1rem;
+  box-shadow: var(--shadow-soft);
 }
+/* 떠 있는 카드 — 히어로·HUD 처럼 지금 보고 있어야 하는 것 (Hero Radius 24px + Level 2) */
+.card-lift {
+  background: var(--color-surface);
+  border: 1px solid rgb(43 102 255 / 0.08);
+  border-radius: 1.5rem;
+  box-shadow: var(--shadow-lift);
+}
+
+/* 칩 — 필터·상태 (Full Pill) */
+.chip {
+  display: inline-flex; align-items: center; gap: .25rem; white-space: nowrap;
+  border-radius: 9999px; padding: .375rem .875rem;
+  font-size: 12px; font-weight: 600; line-height: 16px;
+  background: var(--color-surface); color: var(--color-muted); border: 1px solid var(--color-line);
+}
+.chip[data-active="true"] { background: var(--color-sherpy-600); color: #fff; border-color: var(--color-sherpy-600); box-shadow: var(--shadow-soft); }
+
+/* 지표 숫자 — metric-display (24px / 800 / -0.02em) */
+.metric { font-size: 24px; line-height: 28px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 
 /* ═══════════════════════════════════════════════
    모션 — 게임 UI 원칙을 가져왔다

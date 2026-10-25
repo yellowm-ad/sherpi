@@ -31,25 +31,26 @@ export const POI_LABEL: Record<PoiType, string> = {
 export const ROUTES: DemoRoute[] = [
   {
     id: 12,
-    name: "덕진공원 한바퀴",
-    description: "연못을 끼고 도는 평탄한 산책로. 연꽃 시즌엔 사람이 많아요.",
-    author: "지훈",
+    name: "덕진공원 기본 산책로",
+    description: "덕진호를 한 바퀴 도는 기본 코스. 평탄하고, 연꽃 시즌엔 사람이 많아요.",
+    author: "프리가이즈",
     difficulty: "쉬움",
     likeCount: 48,
     isPublic: true,
     taught: true,
     keyframes: 120,
-    // 덕진호 연못 둘레 — 카카오맵 위에서 직접 따라 그린 좌표
+    // 덕진호 둘레 1.0km — 시연 계정에서 카카오맵 위에 직접 그려 저장한 코스(DB 1007)를 기본 산책로로 고정
     points: [
-      [35.84912, 127.12102], [35.84958, 127.12190], [35.84975, 127.12285], [35.84960, 127.12390],
-      [35.84933, 127.12489], [35.84865, 127.12482], [35.84798, 127.12469], [35.84772, 127.12360],
-      [35.84753, 127.12247], [35.84780, 127.12160], [35.84813, 127.12082], [35.84865, 127.12090],
-      [35.84912, 127.12102],
+      [35.849728, 127.124172], [35.847707, 127.122519], [35.848271, 127.121684], [35.848433, 127.121532],
+      [35.848555, 127.121140], [35.848434, 127.120597], [35.848903, 127.120316], [35.849556, 127.120543],
+      [35.849898, 127.121026], [35.850308, 127.121629], [35.850262, 127.122443], [35.850266, 127.123140],
+      [35.850180, 127.123196], [35.850139, 127.123373], [35.850044, 127.123882], [35.849909, 127.123854],
+      [35.849823, 127.123992], [35.849724, 127.124153],
     ],
     pois: [
-      { type: "water", lat: 35.84958, lng: 127.12190, label: "북쪽 정자 급수대" },
-      { type: "shade", lat: 35.84933, lng: 127.12489, label: "동쪽 버드나무 그늘" },
-      { type: "bag", lat: 35.84772, lng: 127.12360, label: "남문 봉투함" },
+      { type: "water", lat: 35.850262, lng: 127.122443, label: "북쪽 정자 급수대" },
+      { type: "shade", lat: 35.848903, lng: 127.120316, label: "서쪽 버드나무 그늘" },
+      { type: "bag", lat: 35.848271, lng: 127.121684, label: "남문 봉투함" },
     ],
   },
   {
@@ -132,7 +133,7 @@ export interface DemoWalk {
 export const WALKS: DemoWalk[] = [
   {
     id: 104, routeId: 12, startedAt: "2026-10-18T19:10:00+09:00",
-    durationS: 1920, distanceM: 1810, avgSpeed: 0.94, maxSpeed: 1.32,
+    durationS: 1110, distanceM: 1040, avgSpeed: 0.94, maxSpeed: 1.32,
     avgTensionN: 9.4, maxTensionN: 34.1, pullCount: 3,
     warnings: [{ at: "19:24", level: 2, reason: "견인 과다 — 자동 감속" }],
     walkScore: 82,
@@ -146,7 +147,7 @@ export const WALKS: DemoWalk[] = [
   },
   {
     id: 102, routeId: 12, startedAt: "2026-10-15T18:40:00+09:00",
-    durationS: 2040, distanceM: 1835, avgSpeed: 0.9, maxSpeed: 1.4,
+    durationS: 1180, distanceM: 1065, avgSpeed: 0.9, maxSpeed: 1.4,
     avgTensionN: 11.2, maxTensionN: 38.7, pullCount: 5,
     warnings: [
       { at: "18:51", level: 2, reason: "견인 과다 — 자동 감속" },
@@ -156,7 +157,7 @@ export const WALKS: DemoWalk[] = [
   },
   {
     id: 101, routeId: 12, startedAt: "2026-10-12T19:00:00+09:00",
-    durationS: 1980, distanceM: 1790, avgSpeed: 0.91, maxSpeed: 1.35,
+    durationS: 1120, distanceM: 1020, avgSpeed: 0.91, maxSpeed: 1.35,
     avgTensionN: 12.0, maxTensionN: 39.2, pullCount: 6,
     warnings: [{ at: "19:15", level: 2, reason: "견인 과다 — 자동 감속" }],
     walkScore: 71,

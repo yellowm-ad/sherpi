@@ -88,3 +88,8 @@ function useSession(): State {
 export function useUser(): SessionUser | null {
   return useSession().user;
 }
+
+/** 세션 확인이 끝났는지 — 끝나기 전의 null 은 '게스트'가 아니라 '아직 모름' */
+export function useSessionLoaded(): boolean {
+  return useSession().loaded;
+}

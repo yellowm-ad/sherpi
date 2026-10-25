@@ -2,7 +2,8 @@
 
 import { use, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Heart, Send, Clock, Ruler, Mountain, Info, Check, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { Heart, Send, Clock, Ruler, Mountain, Info, Check, Trash2, Pencil } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import RouteMap from "@/components/map/RouteMap";
 import Sheet from "@/components/ui/Sheet";
@@ -88,9 +89,14 @@ export default function RouteDetail({ params }: { params: Promise<{ id: string }
           {sent ? <><Check size={18} /> 전송 완료 — 대시보드로 이동</> : <><Send size={18} /> 셰르피에 전송</>}
         </button>
         {isMine && user && (
-          <button onClick={() => setDelOpen(true)} className="touch -mt-3 mb-6 flex w-full items-center justify-center gap-1.5 text-sm text-level-3">
-            <Trash2 size={15} /> 내 코스에서 삭제
-          </button>
+          <div className="-mt-3 mb-6 grid grid-cols-2 gap-2">
+            <Link href={`/routes/${r.id}/edit`} className="touch flex items-center justify-center gap-1.5 rounded-2xl border border-line bg-surface text-sm font-semibold text-sherpy-700">
+              <Pencil size={15} /> 코스 수정
+            </Link>
+            <button onClick={() => setDelOpen(true)} className="touch flex items-center justify-center gap-1.5 rounded-2xl border border-line bg-surface text-sm font-semibold text-level-3">
+              <Trash2 size={15} /> 삭제
+            </button>
+          </div>
         )}
       </div>
 

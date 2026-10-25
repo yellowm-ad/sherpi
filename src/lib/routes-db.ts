@@ -71,3 +71,31 @@ export async function createRoute(userId: number, input: z.infer<typeof NewRoute
   }
   return r.id;
 }
+
+/** 코스 수정 — 경유점·편의시설은 통째로 갈아 끼운다. 경로가 바뀌면 티칭을 다시 해야 한다 (PRD F-4) */
+export async function updateRoute(id: number, input: z.infer<typeof NewRouteSchema>) {
+  const before = await db.select({ lat: routePoints.lat, lng: routePoints.lng }).from(routePoints)
+    .where(eq(routePoints.routeId, id)).orderBy(asc(routePoints.seq));
+  const pathChanged = before.length !== input.points.length
+    || before.some((p, i) => Math.abs(p.lat - input.points[i][0]) > 1e-7 || Math.abs(p.lng - input.points[i][1]) > 1e-7);
+  const dist = routeLength(input.points);
+
+  await db.batch([
+    db.update(routes).set({
+      name: input.name,
+      description: input.description || null,
+      distanceM: Math.round(dist),
+      estDurationS: Math.round(dist / 1.0),
+      difficulty: difficultyOf(dist),
+      isPublic: input.isPublic,
+      ...(pathChanged ? { taught: false, keyframes: 0 } : {}),
+    }).where(eq(routes.id, id)),
+    db.delete(routePoints).where(eq(routePoints.routeId, id)),
+    db.delete(routePois).where(eq(routePois.routeId, id)),
+    db.insert(routePoints).values(input.points.map((p, seq) => ({ routeId: id, seq, lat: p[0], lng: p[1] }))),
+    ...(input.pois.length
+      ? [db.insert(routePois).values(input.pois.map((p) => ({ routeId: id, type: p.type, lat: p.lat, lng: p.lng, label: p.label ?? null })))]
+      : []),
+  ] as const);
+  return pathChanged;
+}

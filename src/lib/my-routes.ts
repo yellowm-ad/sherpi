@@ -17,6 +17,8 @@ const EMPTY: DemoRoute[] = [];
 let owner: string | null = null;
 let list: DemoRoute[] = EMPTY;
 let demo = false;
+/** 지금 계정의 목록을 한 번이라도 받아왔는지 — 수정 화면이 '없는 코스'와 '아직 로딩'을 구분하게 */
+let loaded = false;
 
 const localKey = (u: string) => `sherpy.routes.${u}`;
 
@@ -32,9 +34,11 @@ async function load(user: SessionUser | null) {
   const name = user?.username ?? null;
   if (name === owner) return;
   owner = name;
-  if (!name) return emit(EMPTY);
+  loaded = false;
+  if (!name) { loaded = true; return emit(EMPTY); }
   const r = await fetch("/api/routes/mine", { cache: "no-store" }).catch(() => null);
   if (owner !== name) return; // 그 사이 계정이 바뀜
+  loaded = true;
   if (r?.ok) {
     demo = false;
     emit((await r.json()).routes);
@@ -52,6 +56,16 @@ export function useMyRoutes() {
     (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
     () => list,
     () => EMPTY,
+  );
+}
+
+/** 내 코스 목록을 받아왔는지 */
+export function useMyRoutesLoaded() {
+  useMyRoutes();
+  return useSyncExternalStore(
+    (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
+    () => loaded,
+    () => false,
   );
 }
 
@@ -75,6 +89,31 @@ export async function saveMyRoute(user: SessionUser, r: NewRoute & { distanceM: 
     author: user.nickname, likeCount: 0, taught: false, keyframes: 0, difficulty: difficultyOf(r.distanceM),
   };
   emit([route, ...list]);
+  return route;
+}
+
+/** 수정 — 경로가 바뀌면 티칭을 다시 해야 하므로 자동주행 표시를 끈다. 실패하면 오류 문구를 던진다 */
+export async function updateMyRoute(id: number, r: NewRoute & { distanceM: number }): Promise<DemoRoute> {
+  const prev = list.find((x) => x.id === id);
+  if (!prev) throw new Error("내 코스에서 찾을 수 없어요");
+  if (!demo) {
+    const res = await fetch(`/api/routes/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: r.name, description: r.description, isPublic: r.isPublic, points: r.points, pois: r.pois }),
+    });
+    const j = await res.json().catch(() => ({}));
+    if (res.ok) { emit(list.map((x) => (x.id === id ? j.route : x))); return j.route; }
+    if (res.status !== 503) throw new Error(j.error ?? "수정에 실패했어요");
+    demo = true;
+  }
+  const pathChanged = JSON.stringify(prev.points) !== JSON.stringify(r.points);
+  const route: DemoRoute = {
+    ...prev, name: r.name, description: r.description, isPublic: r.isPublic, points: r.points, pois: r.pois,
+    difficulty: difficultyOf(r.distanceM),
+    ...(pathChanged ? { taught: false, keyframes: 0 } : {}),
+  };
+  emit(list.map((x) => (x.id === id ? route : x)));
   return route;
 }
 

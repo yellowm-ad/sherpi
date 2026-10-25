@@ -9,13 +9,15 @@ declare global {
 }
 
 export interface MapLine { id: number | string; points: [number, number][]; color: string; weight?: number; dashed?: boolean }
-export interface MapMarker { lat: number; lng: number; label: string; kind?: "poi" | "robot" | "point" }
+export interface MapMarker { lat: number; lng: number; label: string; kind?: "poi" | "robot" | "point" | "place" }
+/** 지도를 옮길 곳 — key 가 바뀔 때만 이동한다 (같은 곳을 다시 검색해도 다시 이동) */
+export interface MapFocus { lat: number; lng: number; level?: number; key: number }
 export interface MapCircle { lat: number; lng: number; radius: number; color: string; label?: string }
 
 const KEY = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY;
 let loader: Promise<any> | null = null;
 
-/** 카카오맵 SDK를 한 번만 로드한다 (autoload=false → kakao.maps.load) */
+/** 카카오맵 SDK를 한 번만 로드한다 (autoload=false → kakao.maps.load). services = 장소·주소 검색 */
 function loadKakao(): Promise<any> {
   if (typeof window === "undefined") return Promise.reject();
   if (window.kakao?.maps?.LatLng) return Promise.resolve(window.kakao);
@@ -23,7 +25,7 @@ function loadKakao(): Promise<any> {
   loader = new Promise((resolve, reject) => {
     if (!KEY) return reject(new Error("NEXT_PUBLIC_KAKAO_MAP_KEY 미설정"));
     const s = document.createElement("script");
-    s.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KEY}&autoload=false`;
+    s.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KEY}&autoload=false&libraries=services`;
     s.async = true;
     s.onload = () => window.kakao.maps.load(() => resolve(window.kakao));
     s.onerror = () => { loader = null; reject(new Error("카카오맵 SDK 로드 실패")); };
@@ -36,8 +38,13 @@ function loadKakao(): Promise<any> {
  * 카카오맵 래퍼 — 코스 그리기 / 궤적 표시 공용 (PRD §10-3 RouteMap)
  * 색은 CSS 토큰을 읽어서 넘긴다. 카카오맵은 CSS 변수를 이해하지 못한다.
  */
+export function loadKakaoMaps() { return loadKakao(); }
+
+// 끌어서 옮길 수 있는 경유점 — CustomOverlay 는 드래그가 안 돼서 Marker + 작은 원 이미지를 쓴다
+const DOT = `data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"><circle cx="11" cy="11" r="7" fill="#2563EB" stroke="#fff" stroke-width="3"/></svg>')}`;
+
 export default function RouteMap({
-  center, level = 4, lines = [], markers = [], circles = [], fitTo, onMapClick, className = "h-64",
+  center, level = 4, lines = [], markers = [], circles = [], fitTo, fitPad = [40, 40, 40, 40], focus, onMapClick, onPointDrag, className = "h-64",
 }: {
   center: [number, number];
   level?: number;
@@ -45,13 +52,20 @@ export default function RouteMap({
   markers?: MapMarker[];
   circles?: MapCircle[];
   fitTo?: [number, number][];
+  /** 화면 맞춤 여백 [위, 오른쪽, 아래, 왼쪽] — 지도 위에 겹친 검색창·카드를 피한다 */
+  fitPad?: [number, number, number, number];
+  focus?: MapFocus | null;
   onMapClick?: (lat: number, lng: number) => void;
+  /** 주면 kind="point" 마커를 끌어서 옮길 수 있다 — index 는 point 마커들 사이의 순번 */
+  onPointDrag?: (index: number, lat: number, lng: number) => void;
   className?: string;
 }) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
   const drawn = useRef<any[]>([]);
   const clickRef = useRef(onMapClick);
+  const dragRef = useRef(onPointDrag);
+  dragRef.current = onPointDrag;
   const [err, setErr] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   clickRef.current = onMapClick;
@@ -105,25 +119,54 @@ export default function RouteMap({
       }));
     }
 
+    let pointIdx = 0;
     for (const m of markers) {
+      if (m.kind === "point" && dragRef.current) {
+        const i = pointIdx++;
+        const mk = new kakao.maps.Marker({
+          map: map.current, position: LL(m.lat, m.lng), draggable: true, title: m.label,
+          image: new kakao.maps.MarkerImage(DOT, new kakao.maps.Size(22, 22), { offset: new kakao.maps.Point(11, 11) }),
+        });
+        kakao.maps.event.addListener(mk, "dragend", () => {
+          const p = mk.getPosition();
+          dragRef.current?.(i, p.getLat(), p.getLng());
+        });
+        drawn.current.push(mk);
+        continue;
+      }
       const style =
         m.kind === "robot"
           ? "width:18px;height:18px;border-radius:99px;background:#06B6D4;border:3px solid #fff;box-shadow:0 0 0 6px rgba(6,182,212,.3)"
           : m.kind === "point"
           ? "width:12px;height:12px;border-radius:99px;background:#2563EB;border:2px solid #fff"
+          : m.kind === "place"
+          ? "font:700 12px Pretendard,sans-serif;background:#1D4ED8;color:#fff;padding:5px 10px;border-radius:99px;box-shadow:0 2px 6px rgba(0,0,0,.25);white-space:nowrap"
           : "font:600 11px Pretendard,sans-serif;background:#fff;color:#1D4ED8;padding:3px 8px;border-radius:99px;border:1px solid #DBEAFE;box-shadow:0 1px 3px rgba(0,0,0,.12);white-space:nowrap";
       drawn.current.push(new kakao.maps.CustomOverlay({
         map: map.current, position: LL(m.lat, m.lng), yAnchor: m.kind === "poi" || !m.kind ? 1.3 : 0.5,
         content: m.kind === "robot" || m.kind === "point" ? `<div title="${m.label}" style="${style}"></div>` : `<div style="${style}">${m.label}</div>`,
       }));
     }
+  }, [ready, lines, markers, circles]);
 
-    if (fitTo && fitTo.length > 1) {
-      const b = new kakao.maps.LatLngBounds();
-      fitTo.forEach((p) => b.extend(LL(p[0], p[1])));
-      map.current.setBounds(b, 40, 40, 40, 40);
-    }
-  }, [ready, lines, markers, circles, fitTo]);
+  // 화면 맞춤은 fitTo 가 바뀔 때만 — 그리는 중에 선이 바뀔 때마다 지도가 튀지 않게
+  useEffect(() => {
+    const kakao = window.kakao;
+    if (!ready || !map.current || !kakao || !fitTo || fitTo.length < 2) return;
+    const b = new kakao.maps.LatLngBounds();
+    fitTo.forEach((p) => b.extend(new kakao.maps.LatLng(p[0], p[1])));
+    map.current.setBounds(b, ...fitPad);
+    // 여백은 화면마다 고정값이라 fitTo 가 바뀔 때만 맞춘다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, fitTo]);
+
+  // 검색한 곳으로 이동
+  useEffect(() => {
+    const kakao = window.kakao;
+    if (!ready || !map.current || !kakao || !focus) return;
+    if (focus.level) map.current.setLevel(focus.level);
+    map.current.panTo(new kakao.maps.LatLng(focus.lat, focus.lng));
+  }, [ready, focus]);
 
   if (err) {
     return (

@@ -108,6 +108,16 @@ def main():
     s, _ = a.req("PATCH", f"/api/routes/{rid}", {"taught": True, "keyframes": 57})
     s2, j = a.req("GET", f"/api/routes/{rid}")
     check(s == 200 and j.get("route", {}).get("taught") and j["route"]["keyframes"] == 57, "티칭 완료 기록")
+    edit = {"name": "QA 덕진호 코스(수정)", "points": pts[:3], "isPublic": False, "pois": []}
+    s, _ = b.req("PUT", f"/api/routes/{rid}", edit)
+    check(s == 403, "남의 코스 수정 → 403")
+    s, j = a.req("PUT", f"/api/routes/{rid}", {**edit, "points": pts[:1]})
+    check(s == 422, "경유점 1개로 수정 → 422")
+    s, j = a.req("PUT", f"/api/routes/{rid}", edit)
+    r = j.get("route", {})
+    check(s == 200 and r.get("name") == edit["name"] and len(r.get("points", [])) == 3 and not r.get("pois"),
+          "코스 수정 (이름·경유점·편의시설)", f"{s} {j}")
+    check(r.get("taught") is False and r.get("keyframes") == 0, "경로 수정 → 티칭 기록 초기화")
     s, _ = a.req("DELETE", f"/api/routes/{rid}")
     s2, j = a.req("GET", "/api/routes/mine")
     check(s == 200 and all(r["id"] != rid for r in j["routes"]), "코스 삭제")

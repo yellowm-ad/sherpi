@@ -17,6 +17,10 @@ export interface TelemetryRow {
   lat: number | null;
   lng: number | null;
   gpsSrc: "phone" | "robot" | null;
+  /** GPS 실측 지면속도 — speedCmd(지령)와 비교해 실제로 얼마나 가는지 본다 */
+  speedMps: number | null;
+  headingDeg: number | null;
+  gpsSats: number | null;
   routeId: number | null;
   kfIndex: number | null;
   kfTotal: number | null;

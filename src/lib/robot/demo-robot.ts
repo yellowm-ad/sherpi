@@ -231,7 +231,7 @@ class DemoRobot {
       }
     }
 
-    // 위치 — 보호자 폰 GPS를 대신해 코스 위를 따라 움직인다 (PRD §7-5)
+    // 위치 — 로봇 GPS(robot/bridge/gps.py)를 흉내 내 코스 위를 따라 움직인다
     const r = findRoute(this.routeId) ?? ROUTES[0];
     const prog = this.kfTotal ? this.kfIndex / this.kfTotal : 0;
     const segF = prog * (r.points.length - 1);
@@ -239,6 +239,12 @@ class DemoRobot {
     const f = segF - i;
     const lat = r.points[i][0] + (r.points[i + 1][0] - r.points[i][0]) * f;
     const lng = r.points[i][1] + (r.points[i + 1][1] - r.points[i][1]) * f;
+    // 진행 방위 — 지금 구간의 방향 (0=북, 시계방향)
+    const dy = r.points[i + 1][0] - r.points[i][0];
+    const dx = (r.points[i + 1][1] - r.points[i][1]) * Math.cos((lat * Math.PI) / 180);
+    const heading = (Math.atan2(dx, dy) * 180 / Math.PI + 360) % 360;
+    // 실측 속도는 지령보다 조금 느리고 흔들린다 (노면·접지). 정지 중 GPS 노이즈는 0으로 자른다
+    const measured = moving ? Math.max(0, speed * 0.9 + noise(0.06)) : 0;
 
     this.latest = {
       id: ++this.seq,
@@ -252,7 +258,10 @@ class DemoRobot {
       speedCmd: speed,
       steerCmd: moving ? Math.max(-1, Math.min(1, Math.sin(Date.now() / 4000) * 0.4 + noise(0.1))) : 0,
       lat, lng,
-      gpsSrc: "phone",
+      gpsSrc: "robot",
+      speedMps: measured,
+      headingDeg: moving ? heading : null,
+      gpsSats: 8 + Math.round(Math.random() * 2),
       routeId: this.routeId,
       kfIndex: this.mode === "idle" && !this.kfTotal ? null : this.kfIndex,
       kfTotal: this.kfTotal || null,

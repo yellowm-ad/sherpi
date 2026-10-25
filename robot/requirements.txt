@@ -1,16 +1,37 @@
-# 브리지
+# ── 브리지 ──────────────────────────────────
 requests>=2.32.0
 
-# PCA9685 (I2C PWM)
+# ── GPIO (라즈베리파이 5) ───────────────────
+# ⚠️ Pi 5는 RP1 사우스브리지가 GPIO를 담당해 기존 RPi.GPIO가 동작하지 않는다.
+#    rpi-lgpio 는 동일한 API를 제공하는 드롭인 대체품이라 코드를 고칠 필요가 없다.
+#    단, RPi.GPIO 와 같은 환경에 함께 설치하면 안 된다. (sudo apt remove -y python3-rpi.gpio)
+rpi-lgpio>=0.6
+lgpio>=0.2.2.0
+gpiozero>=2.0.1
+
+# ── PCA9685 (I2C PWM) ───────────────────────
 adafruit-circuitpython-pca9685>=3.4.16
 adafruit-blinka>=8.50.0
 
-# 센서
-# HX711(로드셀 SBA-50L)은 GPIO 비트뱅잉 라이브러리 사용
-RPi.GPIO>=0.7.1
-# AS5600 (I2C 0x36)
+# ── GPS (NEO-6M, UART) ──────────────────────
+pyserial>=3.5
+pynmea2>=1.19.0
+
+# ── 로드셀 SBA-50L + HX711 ──────────────────
+# RPi.GPIO 기반 라이브러리 대신 lgpio 기반을 쓴다.
+hx711-rpi-py>=1.65.0
+
+# ── AS5600 (Grove, I2C 0x36) ────────────────
 adafruit-circuitpython-busdevice>=5.2.9
 
-# 비전 (경로 기억 주행)
+# ── TM1637 7세그먼트 LED ×2 ─────────────────
+raspberrypi-tm1637>=1.0.0
+
+# ── 카메라 (Pi 5 = libcamera / picamera2) ───
+# apt로 설치하는 편이 안정적: sudo apt install -y python3-picamera2
+#   (apt로 깔았다면 venv를 --system-site-packages 로 만들어야 보인다)
+picamera2>=0.3.17
+
+# ── 비전 (경로 기억 주행) ───────────────────
 opencv-python-headless>=4.10.0
 numpy>=1.26.0

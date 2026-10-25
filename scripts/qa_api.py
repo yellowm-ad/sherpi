@@ -2,7 +2,7 @@
 셰르피 API 통합 검증 — 실제 DB를 대상으로 회원·코스·커뮤니티·신고·어드민 흐름을 끝까지 돌린다.
 
     python scripts/qa_api.py                      # http://localhost:3000
-    python scripts/qa_api.py https://sharpi.vercel.app
+    python scripts/qa_api.py https://sherpy.vercel.app
 
 .env.local 의 QA_USER / QA_PASSWORD / QA_USER2 / ADMIN_PASSWORD 를 쓴다. 비밀값은 출력하지 않는다.
 QA 계정이 없으면 만들고, 테스트가 남긴 정지 상태는 끝에 되돌린다.

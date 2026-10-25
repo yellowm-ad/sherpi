@@ -51,13 +51,18 @@
   "leash_len_m": 2.45,
   "speed_cmd": 0.42,
   "steer_cmd": -0.15,
-  "lat": 35.8465, "lng": 127.1295, "gps_src": "phone",
+  "lat": 35.8487, "lng": 127.1229, "gps_src": "robot",
+  "speed_mps": 0.39, "heading_deg": 84.4, "gps_sats": 8,
   "route_id": 12,
   "kf_index": 34, "kf_total": 120,
   "match_quality": 0.78,
   "battery_v": null
 }
 ```
+
+- `speed_cmd` 는 **지령** 속도, `speed_mps` 는 로봇 GPS로 잰 **실측** 지면속도. 대시보드는 둘을 나란히 보여준다.
+- `gps_src` 가 `"robot"` 이면 로봇 GPS(NEO-6M, `/dev/ttyAMA0`), `"phone"` 이면 보호자 휴대폰 위치. 측위가 안 잡히면 로봇은 위치 필드를 비우고 `gps_sats` 만 보낸다.
+- `battery_v` 는 전압 ADC 가 없어 `null`. 앱은 주행 시작부터 경과시간으로 25분에 교체를 권한다.
 
 응답: `{ "ok": true, "accepted": 1 }`
 

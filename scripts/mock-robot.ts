@@ -102,7 +102,11 @@ async function tick() {
     steer_cmd: Number((Math.sin(t / 5) * 0.3).toFixed(3)),
     lat: BASE_LAT + Math.sin(t / 30) * 0.0012,
     lng: BASE_LNG + Math.cos(t / 30) * 0.0012,
-    gps_src: "phone" as const,
+    gps_src: "robot" as const,
+    // GPS 실측 — 지령보다 약간 느리고 흔들린다 (robot/bridge/gps.py)
+    speed_mps: Number(Math.max(0, speed * 0.9 + (speed ? (Math.random() - 0.5) * 0.1 : 0)).toFixed(3)),
+    heading_deg: Number(((360 - ((t * 180) / Math.PI / 30) % 360) % 360).toFixed(1)), // 반시계로 원을 돈다
+    gps_sats: 8 + Math.round(Math.random() * 2),
     route_id: null,
     kf_index: kfIndex,
     kf_total: kfTotal,
@@ -121,7 +125,7 @@ async function tick() {
       `${mark} t=${String(t).padStart(3)} ${mode.padEnd(6)} L${lv}  ` +
       `장력 ${payload.tension_n.toFixed(1).padStart(5)}N  ` +
       `줄 ${payload.leash_len_m.toFixed(2)}m  ` +
-      `속도 ${payload.speed_cmd.toFixed(2)}m/s  kf ${kfIndex}/${kfTotal}`,
+      `속도 지령 ${payload.speed_cmd.toFixed(2)} / 실측 ${payload.speed_mps.toFixed(2)}m/s  kf ${kfIndex}/${kfTotal}`,
     );
     if (!res.ok) console.log("   ", (await res.text()).slice(0, 200));
   } catch (e) {

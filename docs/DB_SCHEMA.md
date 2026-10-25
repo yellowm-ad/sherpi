@@ -30,10 +30,20 @@
 **7일 경과분은 주기적으로 삭제**하세요. Neon 무료 플랜 용량이 금방 찹니다.
 
 ```sql
-DELETE FROM robot_telemetry WHERE ts < now() - interval '7 days';
+DELETE FROM sherpy.robot_telemetry WHERE ts < now() - interval '7 days';
 ```
 
 Vercel Cron 또는 Neon의 스케줄 기능으로 돌리면 됩니다.
+
+### robot_telemetry 의 속도 컬럼 두 개
+
+| 컬럼 | 뜻 |
+|---|---|
+| `speed_cmd` | 로봇이 ESC 에 **지령**한 속도 |
+| `speed_mps` | 로봇 GPS 로 잰 **실측** 지면속도 (2026-10-25 추가, `heading_deg`·`gps_sats` 와 함께) |
+
+MJX H8P 의 모터 엔코더 신호는 ESC 안에서만 쓰여 밖으로 나오지 않으므로 GPS 가 유일한 실측 속도원이다.
+기존 DB 에는 `node scripts/db-init.mjs` 가 `add column if not exists` 로 붙인다.
 
 ### robots.api_key_hash — 평문 저장 금지
 

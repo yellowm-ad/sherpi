@@ -58,6 +58,9 @@ class TelemetryUplink:
             "lat": s.get("lat"),
             "lng": s.get("lng"),
             "gps_src": s.get("gps_src", "phone"),
+            "speed_mps": s.get("speed_mps"),       # GPS 실측 지면속도 (gps.telemetry_fields)
+            "heading_deg": s.get("heading_deg"),
+            "gps_sats": s.get("gps_sats"),
             "route_id": s.get("route_id"),
             "kf_index": s.get("kf_index"),
             "kf_total": s.get("kf_total"),

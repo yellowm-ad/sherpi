@@ -68,6 +68,9 @@ export const robotTelemetry = sherpy.table("robot_telemetry", {
   lat: doublePrecision("lat"),
   lng: doublePrecision("lng"),
   gpsSrc: varchar("gps_src", { length: 8 }),   // phone|robot
+  speedMps: doublePrecision("speed_mps"),      // GPS 실측 지면속도 (speedCmd 는 지령값)
+  headingDeg: doublePrecision("heading_deg"),  // GPS 진행 방위 (0=북, 시계방향)
+  gpsSats: integer("gps_sats"),                // 잡힌 위성 수 — 0이면 측위 실패
 
   routeId: integer("route_id"),
   kfIndex: integer("kf_index"),

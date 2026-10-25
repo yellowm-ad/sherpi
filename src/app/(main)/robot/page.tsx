@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { Video, Play, Pause, CircleDot, Square, Gauge, Route as RouteIcon, TriangleAlert, Check, Clock, X, Loader } from "lucide-react";
+import { Video, Play, Pause, CircleDot, Square, Gauge, Route as RouteIcon, TriangleAlert, Check, Clock, X, Loader, BatteryWarning } from "lucide-react";
 import { useRobotStream, sendCommand } from "@/hooks/useRobotStream";
 import TensionGauge from "@/components/robot/TensionGauge";
 import LeashBar from "@/components/robot/LeashBar";
@@ -14,6 +14,7 @@ import { findRoute, useMyRoutes, markTaught } from "@/lib/my-routes";
 import { useUser } from "@/lib/session";
 import { ROUTES } from "@/lib/demo/data";
 import { demoRobot, type CommandLog } from "@/lib/robot/demo-robot";
+import { useBatteryTimer, BATTERY_SWAP_MIN, BATTERY_RUN_MIN } from "@/lib/battery";
 
 const MODE = {
   idle:   { t: "대기",     c: "bg-line text-body" },
@@ -45,6 +46,8 @@ export default function RobotDashboard() {
   const level = latest?.safetyLevel ?? 0;
   const mode = latest?.mode ?? "idle";
   const route = findRoute(latest?.routeId);
+  const battery = useBatteryTimer(mode === "teach" || mode === "follow");
+  const gpsOk = latest?.gpsSrc === "robot" && (latest.gpsSats ?? 0) > 0;
 
   // L2 이상으로 올라가면 진동 + 게이지 카드 흔들림·번쩍임 (PRD F-1 수용기준)
   const [hit, setHit] = useState(false);
@@ -117,6 +120,17 @@ export default function RobotDashboard() {
         </div>
       )}
 
+      {battery.swapDue && (
+        <div className="animate-drop mb-3 flex items-center gap-2 rounded-2xl bg-level-1/15 p-3 text-sm text-body">
+          <BatteryWarning size={18} className="shrink-0 text-level-1" />
+          <p className="flex-1">
+            <b className="text-level-1">배터리 교체 권장</b> — 주행 <span className="tabular">{battery.elapsedMin}</span>분 경과.
+            <span className="text-xs text-muted"> 1개로 약 {BATTERY_RUN_MIN}분 가요.</span>
+          </p>
+          <button onClick={battery.reset} className="touch shrink-0 rounded-xl bg-surface px-3 text-xs font-semibold text-sherpy-700 shadow-sm">교체 완료</button>
+        </div>
+      )}
+
       {offline && state === "offline" && (
         <p className="mb-3 rounded-2xl bg-level-3/10 p-3 text-sm text-level-3">
           로봇과 연결되지 않았습니다. 제어 기능을 사용할 수 없습니다.
@@ -136,7 +150,8 @@ export default function RobotDashboard() {
       </section>
 
       <section className="mt-3 grid grid-cols-2 gap-3">
-        <Stat label="속도" value={latest?.speedCmd != null ? latest.speedCmd.toFixed(2) : "—"} unit="m/s" />
+        <Stat label="실측 속도 (GPS)" value={gpsOk && latest?.speedMps != null ? latest.speedMps.toFixed(2) : "—"} unit={gpsOk ? "m/s" : ""} />
+        <Stat label="지령 속도" value={latest?.speedCmd != null ? latest.speedCmd.toFixed(2) : "—"} unit="m/s" />
         <div className="card p-3">
           <p className="text-xs text-muted">조향</p>
           <div className="relative mt-3 h-2 rounded-full bg-line">
@@ -148,7 +163,12 @@ export default function RobotDashboard() {
         </div>
         <Stat label="매칭 신뢰도" value={latest?.matchQuality != null ? latest.matchQuality.toFixed(2) : "—"}
               warn={latest?.matchQuality != null && latest.matchQuality < THRESHOLDS.KF_MIN_QUALITY} />
-        <Stat label="배터리" value={latest?.batteryV != null ? latest.batteryV.toFixed(1) : "측정 없음"} unit={latest?.batteryV != null ? "V" : ""} small />
+        <Stat label="GPS" value={gpsOk ? `위성 ${latest!.gpsSats}` : latest?.gpsSrc === "robot" ? "측위 대기" : "휴대폰 위치"}
+              unit={gpsOk && latest?.headingDeg != null ? `· ${Math.round(latest.headingDeg)}°` : ""} small={!gpsOk} />
+        {latest?.batteryV != null
+          ? <Stat label="배터리" value={latest.batteryV.toFixed(1)} unit="V" />
+          : <Stat label="배터리 (주행 경과)" value={battery.elapsedMin != null ? String(battery.elapsedMin) : "—"}
+                  unit={battery.elapsedMin != null ? `분 / ${BATTERY_SWAP_MIN}분` : ""} warn={battery.swapDue} warnText="교체" />}
       </section>
 
       {/* 코스 · 경로 진행 */}
@@ -281,10 +301,10 @@ function CmdRow({ c }: { c: CommandLog }) {
   );
 }
 
-function Stat({ label, value, unit, warn, small }: { label: string; value: string; unit?: string; warn?: boolean; small?: boolean }) {
+function Stat({ label, value, unit, warn, warnText = "낮음", small }: { label: string; value: string; unit?: string; warn?: boolean; warnText?: string; small?: boolean }) {
   return (
     <div className={`card p-3 ${warn ? "border-level-1 bg-level-1/5" : ""}`}>
-      <p className="text-xs text-muted">{label}{warn && " · 낮음"}</p>
+      <p className="text-xs text-muted">{label}{warn && ` · ${warnText}`}</p>
       <p className={`tabular mt-1 font-semibold ${small ? "text-base text-muted" : "text-xl"} ${warn ? "text-level-1" : ""}`}>
         {value}{unit && <span className="ml-0.5 text-xs font-normal text-muted">{unit}</span>}
       </p>

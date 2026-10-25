@@ -15,6 +15,10 @@ export const TelemetrySchema = z.object({
   lat: z.number().nullable().optional(),
   lng: z.number().nullable().optional(),
   gps_src: z.enum(["phone", "robot"]).nullable().optional(),
+  // 로봇 GPS (robot/bridge/gps.py) — 실측 지면속도·방위·위성 수
+  speed_mps: z.number().min(0).nullable().optional(),
+  heading_deg: z.number().min(0).max(360).nullable().optional(),
+  gps_sats: z.number().int().min(0).nullable().optional(),
 
   route_id: z.number().int().nullable().optional(),
   kf_index: z.number().int().nullable().optional(),

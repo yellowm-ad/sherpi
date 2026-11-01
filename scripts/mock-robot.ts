@@ -22,7 +22,8 @@ const API_KEY = process.env.MOCK_ROBOT_API_KEY ?? "dev-robot-key-change-me";
 const BASE_LAT = 35.8465;
 const BASE_LNG = 127.1295;
 
-const F_SOFT = 8.0, F_HARD = 30.0, F_ESTOP = 40.0;
+import { THRESHOLDS as TH } from "../src/lib/robot/types";
+const { F_CAUTION, F_WARN, F_STOP } = TH;
 
 type Mode = "idle" | "teach" | "follow" | "estop";
 
@@ -41,15 +42,15 @@ function scenario(sec: number): Mode {
 /** 개가 당기는 상황을 주기적으로 섞는다 */
 function tension(sec: number): number {
   const base = 6 + Math.sin(sec / 4) * 2.5;
-  if (sec % 40 >= 20 && sec % 40 < 25) return base + 28;  // 강한 당김 → L2
-  if (sec % 40 >= 12 && sec % 40 < 16) return base + 6;   // 가벼운 당김 → L1
+  if (sec % 40 >= 20 && sec % 40 < 25) return base + 13;  // 강한 당김 → L2 (16 N 이상)
+  if (sec % 40 >= 12 && sec % 40 < 16) return base + 4;   // 가벼운 당김 → L1
   return Math.max(0.5, base);
 }
 
 function safetyLevel(f: number, l: number): number {
-  if (f >= F_ESTOP || l >= 5.0) return 3;
-  if (f >= F_HARD || l >= 4.5) return 2;
-  if (f >= F_SOFT || l >= 3.0) return 1;
+  if (f >= F_STOP) return 3;
+  if (f >= F_WARN) return 2;
+  if (f >= F_CAUTION || l >= TH.L_SOFT) return 1;
   return 0;
 }
 
@@ -83,13 +84,14 @@ async function tick() {
   if (mode !== "estop") mode = scenario(t);
 
   const f = mode === "estop" ? 0 : tension(t);
-  leash = Math.max(0.5, Math.min(4.9, leash + (Math.random() - 0.48) * 0.25));
+  leash = Math.max(TH.L_MIN, Math.min(TH.L_MAX, leash + (Math.random() - 0.48) * 0.15));
   const lv = mode === "estop" ? 3 : safetyLevel(f, leash);
 
   if (mode === "teach") { kfTotal += Math.random() < 0.5 ? 1 : 0; }
   if (mode === "follow" && kfTotal > 0) { kfIndex = Math.min(kfTotal, kfIndex + (Math.random() < 0.4 ? 1 : 0)); }
 
-  const speed = mode === "follow" ? (lv >= 2 ? 0.15 : 0.85 + Math.sin(t / 7) * 0.1) : 0;
+  const speed = mode === "follow" ? (lv >= 2 ? 0.15 : 0.45 + Math.sin(t / 7) * 0.05) : 0;
+  const bearing = Math.sin(t / 6) * 18 + (Math.random() - 0.5) * 2; // 강아지 방향각 θ [°]
 
   const payload = {
     ts: new Date().toISOString(),
@@ -112,6 +114,11 @@ async function tick() {
     kf_total: kfTotal,
     match_quality: Number((0.55 + Math.random() * 0.4).toFixed(2)),
     battery_v: null,
+    dog_bearing_deg: Number(bearing.toFixed(2)),
+    dog_dist_m: Number((leash + f / 550).toFixed(3)),
+    dog_sigma_m: 0.03,
+    dog_track: "ok" as const,
+    tension_filt_n: Number(f.toFixed(2)),
   };
 
   try {

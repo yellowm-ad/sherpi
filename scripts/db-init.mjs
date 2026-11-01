@@ -14,6 +14,14 @@ await sql`alter table sherpy.robot_telemetry
             add column if not exists heading_deg double precision,
             add column if not exists gps_sats integer`;
 
+// 2026-11-01 강아지 위치 추정 + 필터 장력 (robot/sherpy_core) — 이미 있으면 그대로
+await sql`alter table sherpy.robot_telemetry
+            add column if not exists dog_bearing_deg double precision,
+            add column if not exists dog_dist_m double precision,
+            add column if not exists dog_sigma_m double precision,
+            add column if not exists dog_track varchar(6),
+            add column if not exists tension_filt_n double precision`;
+
 const rooms = [
   ["덕진공원 산책 메이트", "오늘 덕진공원 같이 걸을 분, 코스·시간 공유", "🌳", 1],
   ["셰르피 사용팁", "티칭·자동주행·장력 경고 노하우", "🤖", 2],

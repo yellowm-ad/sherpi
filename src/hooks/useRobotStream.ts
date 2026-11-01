@@ -26,6 +26,12 @@ export interface TelemetryRow {
   kfTotal: number | null;
   matchQuality: number | null;
   batteryV: number | null;
+  /** 강아지 위치 추정 — 로봇 기준 방향각 θ(°, +오른쪽)·거리 d̂·1σ·추적 상태 (구버전 로봇이면 undefined) */
+  dogBearingDeg?: number | null;
+  dogDistM?: number | null;
+  dogSigmaM?: number | null;
+  dogTrack?: "ok" | "coast" | "lost" | null;
+  tensionFiltN?: number | null;
 }
 
 export type ConnState = "connecting" | "online" | "stale" | "offline";

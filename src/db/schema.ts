@@ -78,6 +78,13 @@ export const robotTelemetry = sherpy.table("robot_telemetry", {
   matchQuality: doublePrecision("match_quality"),
 
   batteryV: doublePrecision("battery_v"),      // ADC 미장착 시 null
+
+  // 강아지 위치 추정 (robot/sherpy_core) — 2026-11-01
+  dogBearingDeg: doublePrecision("dog_bearing_deg"), // θ 로봇 기준 (+ = 오른쪽)
+  dogDistM: doublePrecision("dog_dist_m"),           // d̂
+  dogSigmaM: doublePrecision("dog_sigma_m"),         // 위치 1σ
+  dogTrack: varchar("dog_track", { length: 6 }),     // ok|coast|lost
+  tensionFiltN: doublePrecision("tension_filt_n"),   // F̂ 필터 장력
 }, (t) => [index("idx_telemetry_robot_ts").on(t.robotId, t.ts)]);
 
 /* ── 명령 큐 ──────────────────────────────────

@@ -53,7 +53,7 @@ DB에는 bcrypt 해시만 저장하고 `verifyRobotKey()` 로 비교합니다.
 
 ### walks.pull_count
 
-장력이 `F_HARD`(30N)를 넘은 횟수입니다.
+장력이 `F_WARN`(16N, SHERPY 7.3 L2 경고)을 넘은 횟수입니다.
 **셰르피만 낼 수 있는 데이터**라 서비스 차별점이 됩니다.
 주간 리포트("이번 주 당김 32% 감소")로 확장하면 향후계획 근거가 됩니다.
 
@@ -63,13 +63,21 @@ DB에는 bcrypt 해시만 저장하고 `verifyRobotKey()` 로 비교합니다.
 
 | 상수 | 값 |
 |---|---|
-| `F_SOFT` | 8.0 N |
-| `F_HARD` | 30.0 N |
-| `F_ESTOP` | 40.0 N |
-| `L_SOFT` | 3.0 m |
-| `L_HARD` | 4.5 m |
-| `L_MAX` | 5.0 m |
+| `F_CAUTION` | 8.0 N (L1 주의, 표시만) |
+| `F_WARN` | 16.0 N (L2 경고, ≤0.2 m/s) |
+| `F_STOP` | 35.0 N (L3 HOLD) |
+| `L_MIN` | 1.2 m |
+| `L_SOFT` | 2.76 m (릴 한계 근접) |
+| `L_MAX` | 3.0 m (reelMax) |
 | `KF_MIN_QUALITY` | 0.5 |
+
+2026-11-01 SHERPY 7.3 기준 엔진으로 교체 (이전 8/30/40 N · 3/4.5/5 m 폐기).
+세 곳이 같아야 한다: `src/lib/robot/types.ts` · `robot/bridge/config.py` · `robot/sherpy_core/params.py`.
+
+### robot_telemetry 강아지 추정 컬럼 (2026-11-01)
+
+`dog_bearing_deg`(θ, + 오른쪽) · `dog_dist_m`(d̂) · `dog_sigma_m`(위치 1σ) · `dog_track`(ok|coast|lost) · `tension_filt_n`(F̂).
+`node scripts/db-init.mjs` 가 `add column if not exists` 로 추가한다.
 
 한쪽만 바꾸면 앱 표시와 로봇 동작이 어긋납니다.
 

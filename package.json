@@ -14,7 +14,9 @@
     "db:studio": "drizzle-kit studio",
     "seed": "tsx scripts/seed.ts",
     "qa": "python scripts/qa_api.py",
-    "mock:robot": "tsx scripts/mock-robot.ts"
+    "mock:robot": "tsx scripts/mock-robot.ts",
+    "verify:73": "tsx scripts/verify-73.ts",
+    "verify:math": "tsx scripts/verify-math.ts && cd robot && python -m sherpy_core.verify_golden"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",

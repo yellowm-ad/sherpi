@@ -94,13 +94,13 @@ class StatusDisplay:
         self._render_leash(leash)
 
     def _render_tension(self, tension) -> None:
-        """장력 N(정수). F_HARD 이상이면 점멸, F_ESTOP 이상이면 전부 점멸."""
+        """장력 N(정수). F_WARN 이상이면 점멸, F_STOP 이상이면 전부 점멸."""
         if tension is None:
             self.tension_led.show("----")
             return
 
-        over_estop = tension >= C.F_ESTOP
-        over_hard = tension >= C.F_HARD
+        over_estop = tension >= C.F_STOP
+        over_hard = tension >= C.F_WARN
 
         if (over_estop or over_hard) and self._blink:
             self.tension_led.write([0, 0, 0, 0])     # 꺼진 프레임
@@ -110,12 +110,12 @@ class StatusDisplay:
         self.tension_led.show(f"{n:>4}")
 
     def _render_leash(self, leash) -> None:
-        """줄 길이 cm(정수). L_HARD 이상이면 점멸."""
+        """줄 길이 cm(정수). L_SOFT 이상이면 점멸."""
         if leash is None:
             self.leash_led.show("----")
             return
 
-        if leash >= C.L_HARD and self._blink:
+        if leash >= C.L_SOFT and self._blink:
             self.leash_led.write([0, 0, 0, 0])
             return
 

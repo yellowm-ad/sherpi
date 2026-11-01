@@ -41,15 +41,14 @@ PWM_MAX_US    = 2000
 # 원격 정지는 보조 수단이고, 1차 안전장치는 물리 E-stop 버튼이다.
 WATCHDOG_SEC  = 3.0
 
-# ── 안전 임계값 ────────────────────────────────
-# ⚠️ 이 값들은 walkbot/config.py 및 웹의 src/lib/robot/types.ts 의 THRESHOLDS 와
-#    반드시 같아야 한다. 한쪽만 바꾸면 LED·앱 표시와 로봇 동작이 어긋난다.
-F_SOFT  = 8.0     # N — 감속 시작
-F_HARD  = 30.0    # N — 강한 견인, LED 점멸 + pull_count 집계
-F_ESTOP = 40.0    # N — 비상정지
-L_SOFT  = 3.0     # m
-L_HARD  = 4.5     # m — LED 점멸
-L_MAX   = 5.0     # m
+# ── 안전 임계값 (SHERPY 7.3 기준, 2026-11-01 갱신) ─────
+# ⚠️ 웹 src/lib/robot/types.ts 의 THRESHOLDS · robot/sherpy_core/params.py 와 반드시 같아야 한다.
+F_CAUTION = 8.0   # N — L1 주의 표시 (warn/2)
+F_WARN    = 16.0  # N — L2 경고: 명령속도 ≤ 0.2 m/s, LED 점멸 + pull_count 집계
+F_STOP    = 35.0  # N — L3 정지: HOLD 래치 (자동 복귀 없음)
+L_MIN     = 1.2   # m — 릴 최소 인출
+L_SOFT    = 2.76  # m — 릴 한계 근접 (0.92 × L_MAX), LED 점멸
+L_MAX     = 3.0   # m — 릴 최대 인출 (reelMax)
 
 # ── E-stop 물리버튼 (1차 안전장치) ─────────────
 ESTOP_PIN        = 17    # 풀업, 눌리면 LOW

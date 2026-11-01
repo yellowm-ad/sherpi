@@ -263,7 +263,7 @@ pca.channels[CH_GEAR].duty_cycle = us_to_duty(gear_us)
 |---|---|---|
 | 연결 상태 | `last_seen_at` | 온라인(3초 이내) / 지연 / 오프라인 |
 | **장력** | SBA-50L + HX711 | 게이지 0~50N, 임계선 표시 (8 / 30 / 40N) |
-| **줄 길이** | AS5600 회전각 | 0~5m 바, L_SOFT 3.0 / L_HARD 4.5 / L_MAX 5.0 |
+| **줄 길이** | AS5600 회전각 (겹감김 닫힌 해) | 1.2~3.0 m 바, L_SOFT 2.76 / L_MAX 3.0 (SHERPY 7.3) |
 | 주행 속도 | 스로틀 지령 + 추정 | m/s |
 | 조향 | 조향 지령 | −1(좌) ~ +1(우) 인디케이터 |
 | **안전등급** | `safety.py` L0~L3 | 색상 배지 (초록/노랑/주황/빨강) |
@@ -471,7 +471,7 @@ T_surface ≈ T_air + k × (1 − 운량/10) × 주간계수
 | 소요 시간 | `ended_at − started_at` |
 | 평균 / 최고 속도 | 텔레메트리 |
 | **최대 장력 / 평균 장력** | 로드셀 |
-| **당김 횟수** | 장력이 F_HARD(30N)를 넘은 횟수 |
+| **당김 횟수** | 장력이 F_WARN(16N)을 넘은 횟수 |
 | 안전 경고 이력 | L2/L3 발생 시각·사유 |
 | 주행 궤적 | 지도 폴리라인 |
 | 산책 당시 날씨 | 시작 시각의 Walk Score 스냅샷 |
@@ -1008,3 +1008,14 @@ robot/
 - [MediaMTX — Raspberry Pi 카메라 송출 공식 문서](https://mediamtx.org/docs/publish/raspberry-pi-cameras)
 - [Vercel — WebSocket / SSE 지원 및 함수 실행시간 제한](https://vercel.com/kb/guide/do-vercel-serverless-functions-support-websocket-connections)
 - [MJX H8P 제품 페이지 (골드핑거 탑알씨)](https://toprc.co.kr/product/mjx-h8p-18-mjx-h8p-ford-bronco-r-baja-1000-%EB%9D%BD-%ED%8A%B8%EB%9D%BC%EC%9D%B4%EC%96%BC-rtr-%EB%B8%8C%EB%9F%AC%EC%8B%9C%EB%A6%AC%EC%8A%A4-brushless-/33257/)
+
+### 16-x. SHERPY 7.3 수학 모델 반영 후 확인 필요 (2026-11-01)
+
+시뮬레이터(`/sim`)와 `scripts/verify-math.ts` 결과로 나온 결정 사항. **팀 결정 전까지 기본값은 7.3 그대로 둔다.**
+
+1. **줄 등가 강성 k (550 N/m)** — 경고(16 N)→정지(35 N) 통과 시간이 0.08~0.16초로 필터 τ(0.2 s)보다 짧아 L2 감속이 사실상 작동하지 않음. 탄성(번지) 구간을 넣어 k ≈ 150 N/m 로 낮추면 경고 시간 ≈ 1.1초. **실측 확인 필요.**
+2. **L2 감속 규칙** — 강아지가 앞에서 당길 때 감속하면 장력이 더 오른다. "방향 고려 L2"(v_r > 0 이면 감속 안 함) 채택 여부 **확인 필요.**
+3. **릴 제어 방식** — 7.3 은 릴이 참 거리 d 를 안다고 가정. 실기에서는 장력 제어(예압 2 N, Hunter et al. 2019 의 보호자 유지 장력 2~4 N 과 같은 수준)로 바꾸는 안을 시뮬에서 검증함 (위치 오차 1.6 cm). **릴 모터 속도 제어 가능 여부 확인 필요.**
+4. **카메라** — 확보한 Camera Module 3 Wide 의 공식 가로 화각 102°(대각 120°)로 모델링 (`DEFAULT_HW.camFx 300 px @640, k1 −0.08` → 100.7°). 실제 k1·c_x·장착 요는 **체커보드 보정(Zhang 2000)으로 실측 필요.**
+5. **센서 판정 시간** — 로드셀 0.2 s, 카메라 0.5 s 무응답이면 L3 (7.3 은 한 프레임 즉시). 순간 누락 오경보 방지와 감지 지연의 교환. **값 확인 필요.**
+

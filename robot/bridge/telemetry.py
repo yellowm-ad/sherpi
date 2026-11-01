@@ -66,6 +66,12 @@ class TelemetryUplink:
             "kf_total": s.get("kf_total"),
             "match_quality": s.get("match_quality"),
             "battery_v": s.get("battery_v"),   # ADC 미장착이면 None
+            # 강아지 위치 추정 (sherpy_core.SherpyCore 출력)
+            "dog_bearing_deg": s.get("dog_bearing_deg"),
+            "dog_dist_m": s.get("dog_dist_m"),
+            "dog_sigma_m": s.get("dog_sigma_m"),
+            "dog_track": s.get("dog_track"),
+            "tension_filt_n": s.get("tension_filt_n"),
         }
 
     def _flush(self) -> None:

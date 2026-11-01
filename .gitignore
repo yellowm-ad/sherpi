@@ -25,3 +25,5 @@ robot/**/__pycache__/
 robot/*.pyc
 robot/.venv/
 robot/routes_cache/
+scripts/fixtures/golden-*.json
+robot/**/__pycache__/

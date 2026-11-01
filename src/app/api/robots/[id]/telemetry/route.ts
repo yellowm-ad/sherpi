@@ -57,6 +57,11 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       kfTotal: t.kf_total ?? null,
       matchQuality: t.match_quality ?? null,
       batteryV: t.battery_v ?? null,
+      dogBearingDeg: t.dog_bearing_deg ?? null,
+      dogDistM: t.dog_dist_m ?? null,
+      dogSigmaM: t.dog_sigma_m ?? null,
+      dogTrack: t.dog_track ?? null,
+      tensionFiltN: t.tension_filt_n ?? null,
     };
   });
 

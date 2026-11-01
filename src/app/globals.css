@@ -46,7 +46,24 @@
   --font-sans: "Plus Jakarta Sans", "Pretendard Variable", Pretendard, -apple-system, system-ui, sans-serif;
 }
 
-:root { color-scheme: light; }
+:root {
+  color-scheme: light;
+  /* 시뮬레이션·탑뷰 장면 (캔버스가 getComputedStyle 로 읽는다 — @theme 은 클래스에서 안 쓰면 내보내지 않아서 :root 에 둔다) */
+  --color-scene-grass:   #9CCB7A;
+  --color-scene-grass-2: #86BA66;
+  --color-scene-path:    #EDE3CF;
+  --color-scene-edge:    #C9B996;
+  --color-scene-tree:    #3E8E4E;
+  --color-scene-tree-2:  #5FAE63;
+  --color-scene-shadow:  rgb(26 32 44 / 0.18);
+  --color-dog:           #E8A65C;   /* 시바 주황 */
+  --color-dog-dark:      #B86F2E;
+  --color-dog-light:     #FFF3E0;
+  --color-robot-body:    #2B66FF;
+  --color-robot-dark:    #1A202C;
+  --color-scene-dark:    #0F1A1B;   /* 1인칭 카메라 배경 */
+
+}
 
 html, body {
   background: var(--color-bg);

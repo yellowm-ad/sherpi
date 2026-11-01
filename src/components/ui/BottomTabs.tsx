@@ -7,7 +7,7 @@ import { Home, Map, Bot, MessagesSquare, User } from "lucide-react";
 const TABS = [
   { href: "/home",      label: "홈",     icon: Home },
   { href: "/map",       label: "산책로", icon: Map, also: ["/routes"] },
-  { href: "/robot",     label: "셰르피", icon: Bot, primary: true },
+  { href: "/robot",     label: "셰르피", icon: Bot, primary: true, also: ["/sim"] },
   { href: "/community", label: "커뮤니티", icon: MessagesSquare, also: ["/market"] },
   { href: "/my",        label: "마이",   icon: User, also: ["/walks"] },
 ];

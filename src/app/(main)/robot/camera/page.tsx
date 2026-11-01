@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
-import { useRobotStream } from "@/hooks/useRobotStream";
+import { useRobot } from "../RobotProvider";
 import RobotVideo from "@/components/robot/RobotVideo";
-import DemoCamera from "@/components/robot/DemoCamera";
+import PovCamera from "@/components/sherpy/PovCamera";
 import SafetyBadge from "@/components/robot/SafetyBadge";
 import EstopButton from "@/components/robot/EstopButton";
 
@@ -19,12 +19,22 @@ import EstopButton from "@/components/robot/EstopButton";
  */
 export default function CameraPage() {
   const base = process.env.NEXT_PUBLIC_ROBOT_STREAM_BASE;
-  const robotId = 1;
-  const { latest, state } = useRobotStream(robotId);
+  const { robotId, latest, state } = useRobot();
+  const th = latest?.dogBearingDeg != null ? (latest.dogBearingDeg * Math.PI) / 180 : null;
+  const d = latest?.dogDistM ?? null;
+  const track = latest?.dogTrack ?? undefined;
 
   return (
     <div className="fixed inset-0 z-[45] mx-auto max-w-[480px] bg-black text-white">
-      {base ? <RobotVideo base={base} /> : <DemoCamera speed={latest?.speedCmd ?? 0} steer={latest?.steerCmd ?? 0} />}
+      {base ? (
+        <>
+          <RobotVideo base={base} />
+          {/* 실제 영상 위에 검출 박스·방향선 — 텔레메트리 θ̂·d̂ 를 카메라 모델로 역투영 */}
+          <PovCamera scenery={false} theta={null} d={null} thetaEst={th} dEst={d} track={track} />
+        </>
+      ) : (
+        <PovCamera theta={th} d={d} thetaEst={th} dEst={d} track={track} speed={latest?.speedCmd ?? 0} steer={latest?.steerCmd ?? 0} />
+      )}
 
       {/* HUD 오버레이 */}
       <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/70 to-transparent p-3 pb-10">
@@ -44,10 +54,11 @@ export default function CameraPage() {
       </div>
 
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-4 pt-12 pb-safe">
-        <div className="mb-3 grid grid-cols-3 gap-2 pr-24 text-center">
-          <Hud label="장력" value={latest?.tensionN?.toFixed(1) ?? "—"} unit="N" />
-          <Hud label="속도" value={latest?.speedCmd?.toFixed(2) ?? "—"} unit="m/s" />
-          <Hud label="줄" value={latest?.leashLenM?.toFixed(1) ?? "—"} unit="m" />
+        <div className="mb-3 grid grid-cols-4 gap-1.5 pr-24 text-center">
+          <Hud label="장력" value={(latest?.tensionFiltN ?? latest?.tensionN)?.toFixed(1) ?? "—"} unit="N" />
+          <Hud label="줄" value={latest?.leashLenM?.toFixed(2) ?? "—"} unit="m" />
+          <Hud label="거리" value={d?.toFixed(2) ?? "—"} unit="m" />
+          <Hud label="θ" value={latest?.dogBearingDeg != null ? latest.dogBearingDeg.toFixed(1) : "—"} unit="°" />
         </div>
         <p className="text-[10px] opacity-60">원격 정지는 보조 수단입니다. 긴급 시 로봇 본체 정지 버튼을 쓰세요.</p>
       </div>

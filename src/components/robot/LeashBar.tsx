@@ -8,21 +8,19 @@ export default function LeashBar({ value }: { value: number | null }) {
   const v = useTween(value ?? 0, 600);
   const pct = Math.max(0, Math.min(100, (v / THRESHOLDS.L_MAX) * 100));
 
-  const color =
-    v >= THRESHOLDS.L_HARD ? "var(--color-level-2)"
-    : v >= THRESHOLDS.L_SOFT ? "var(--color-level-1)"
-    : "var(--color-level-0)";
+  // 릴은 L_MIN(1.2 m)~L_MAX(3.0 m) 사이에서만 움직인다 — 한계 근접(L_SOFT)이면 주의
+  const color = v >= THRESHOLDS.L_SOFT ? "var(--color-level-1)" : "var(--color-level-0)";
 
   return (
     <div>
       <div className="flex items-baseline justify-between">
-        <span className="text-sm text-body">줄 길이</span>
+        <span className="text-sm text-body">릴 인출길이 L</span>
         <span className="tabular text-lg font-semibold">{v.toFixed(2)} m</span>
       </div>
       <div className="relative mt-2 h-3 w-full overflow-hidden rounded-full bg-line">
         <div className="h-full rounded-full transition-[background-color] duration-300"
              style={{ width: `${pct}%`, background: color }} />
-        {[THRESHOLDS.L_SOFT, THRESHOLDS.L_HARD].map((m) => (
+        {[THRESHOLDS.L_MIN, THRESHOLDS.L_SOFT].map((m) => (
           <span key={m} className="absolute top-0 h-full w-px bg-white/80"
                 style={{ left: `${(m / THRESHOLDS.L_MAX) * 100}%` }} />
         ))}

@@ -162,8 +162,8 @@ function RobotPanel() {
         <h2 className="text-sm font-bold">시연 리허설 — 상황 주입</h2>
         <p className="mt-1 text-[11px] text-muted">발표 전에 경고 화면이 제대로 뜨는지 확인할 때 써요. 가상 셰르피(시연 모드)에 적용되며, 같은 브라우저의 다른 탭에 열린 앱 화면에도 함께 전달돼요.</p>
         <div className="mt-3 grid grid-cols-2 gap-2">
-          <Inject onClick={() => inject("pull")} icon={<Zap size={15} />} label="강아지 당김 (34N)" sub="L2 경고 · 자동 감속" disabled={!demo} />
-          <Inject onClick={() => inject("overload")} icon={<TriangleAlert size={15} />} label="견인 한계 초과 (44N)" sub="L3 정지" disabled={!demo} />
+          <Inject onClick={() => inject("pull")} icon={<Zap size={15} />} label="강아지 급당김" sub="릴이 풀어 주며 경고 근처까지 (7.3 물리)" disabled={!demo} />
+          <Inject onClick={() => inject("overload")} icon={<TriangleAlert size={15} />} label="견인 한계 초과" sub="L3 정지 · 원인 해소 후 재개" disabled={!demo} />
           <Inject onClick={() => inject("dip")} icon={<ScanEye size={15} />} label="경로 매칭 저하" sub="F4 · 자동주행 중에만" disabled={!demo} />
           <Inject onClick={() => inject("disconnect")} icon={<Unplug size={15} />} label="10초 연결 끊김" sub="지연 → 연결 끊김 표시" disabled={!demo} />
         </div>

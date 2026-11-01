@@ -80,15 +80,15 @@ export default function LiveWalk() {
     a.maxT = Math.max(a.maxT, t);
     a.sumT += t; a.n++;
     a.maxV = Math.max(a.maxV, latest.speedCmd ?? 0);
-    // 당김 횟수 — F_HARD를 넘어설 때마다 1회
-    if (t >= THRESHOLDS.F_HARD && !a.pulling) { a.pulls++; a.pulling = true; navigator.vibrate?.(40); }
-    if (t < THRESHOLDS.F_HARD) a.pulling = false;
+    // 당김 횟수 — F_WARN를 넘어설 때마다 1회
+    if (t >= THRESHOLDS.F_WARN && !a.pulling) { a.pulls++; a.pulling = true; navigator.vibrate?.(40); }
+    if (t < THRESHOLDS.F_WARN) a.pulling = false;
     // 안전 경고 이력 — 등급이 올라가는 순간만 남긴다
     if (latest.safetyLevel > a.level && latest.safetyLevel >= 1) {
       const at = new Date(latest.ts).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false });
       const reason = latest.mode === "estop" ? "비상정지"
-        : t >= THRESHOLDS.F_ESTOP ? "견인 한계 초과 — 정지"
-        : t >= THRESHOLDS.F_HARD ? "견인 과다 — 자동 감속"
+        : t >= THRESHOLDS.F_STOP ? "견인 한계 초과 — 정지"
+        : t >= THRESHOLDS.F_WARN ? "견인 과다 — 자동 감속"
         : latest.faults[0] ? `${latest.faults[0]} ${FAULT_LABEL[latest.faults[0]] ?? ""}`.trim()
         : "강한 당김 — 감속";
       a.warnings.push({ at, level: latest.safetyLevel, reason });

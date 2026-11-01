@@ -27,3 +27,4 @@ robot/.venv/
 robot/routes_cache/
 scripts/fixtures/golden-*.json
 robot/**/__pycache__/
+.claude/settings.local.json

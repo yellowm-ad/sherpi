@@ -202,7 +202,8 @@ python3 -m bridge.display        # 7세그 두 개에 장력·줄 길이 흉내�
 | `bridge/telemetry.py` | 1Hz 상태 업링크 (끊기면 30개까지 버퍼) |
 | `bridge/commands.py` | 1Hz 명령 폴링 + 3초 워치독 |
 | `bridge/gps.py` | NMEA 파싱 → 위치·**실측 속도**·방위·위성 수 |
-| `bridge/display.py` | TM1637 ×2 — RED 장력(N 정수, 30N↑ 점멸) / BLUE 줄 길이(cm 정수, 4.5m↑ 점멸) |
+| `bridge/display.py` | TM1637 ×2 — RED 장력(N 정수, 16N↑ 점멸, 35N↑ 전체 점멸) / BLUE 줄 길이(cm 정수, 2.76m↑ 점멸) |
+| `sherpy_core/` | 🆕 25 Hz 처리 파이프라인 — 장력 보정·릴 길이·카메라 θ → EKF 강아지 위치 → L0~L3 → v·δ·릴 명령 ([MATH_MODEL.md](MATH_MODEL.md)) |
 | `bridge/estop.py` | E-stop 물리버튼 → 즉시 `hal.estop()` |
 | `hal_pca9685.py` | 조향·스로틀·변속 PWM |
 
@@ -211,7 +212,8 @@ python3 -m bridge.display        # 7세그 두 개에 장력·줄 길이 흉내�
 | 파일 | 변경 |
 |---|---|
 | `walkbot/hal.py` | `RealHAL` → `robot/hal_pca9685.py` 의 `PCA9685HAL` 로 교체 |
-| `walkbot/config.py` | PCA9685 채널 상수, `THRESHOLDS` 를 앱·`bridge/config.py` 와 동일하게 |
+| `walkbot/config.py` | PCA9685 채널 상수, `THRESHOLDS` 를 앱·`bridge/config.py`·`sherpy_core/params.py` 와 동일하게 (7.3: 16/35 N, 릴 1.2~3.0 m) |
+| `walkbot/leash.py` · `safety.py` | 장력·릴·안전 판단을 `sherpy_core.SherpyCore.step()` 호출로 교체 (아래 예시) |
 | `walkbot/main.py` | 브리지·GPS·표시·E-stop 기동 (아래 예시) |
 
 ### main.py 연결 예시
@@ -253,6 +255,12 @@ def snapshot():
         "kf_total": len(route.keyframes),
         "match_quality": follower.quality,
         "battery_v": None,           # ADC 미장착 — 앱이 경과시간으로 교체 안내
+        # 강아지 추정 (sherpy_core) — 최근 CoreOutput 에서
+        "dog_bearing_deg": math.degrees(core_out["est"]["theta"]),
+        "dog_dist_m": core_out["est"]["d"],
+        "dog_sigma_m": core_out["est"]["sigma"],
+        "dog_track": core_out["track"],
+        "tension_filt_n": core_out["That"],
         **telemetry_fields(gps.snapshot()),   # lat/lng/gps_src="robot"/speed_mps/heading_deg/gps_sats
     }
 
@@ -284,6 +292,37 @@ downlink = CommandDownlink(); downlink.start(on_command, on_watchdog)
 > **GPS 속도로 폐루프 제어가 가능해졌습니다.** MJX H8P 의 모터 엔코더 신호는 ESC 안에서만 쓰여
 > 밖으로 나오지 않으므로 GPS 가 유일한 실측 속도원입니다. 다만 저속(<0.5m/s)에서는 노이즈가 커서
 > 이동평균 등으로 거른 뒤 써야 합니다.
+
+---
+
+### sherpy_core — 25 Hz 처리 루프 (2026-11-01)
+
+웹 시뮬레이터 실전 모드와 **같은 계산**이다 (골든 테스트 일치). 센서 원시값을 그대로 넣는다.
+
+```python
+import math, time
+from sherpy_core import SherpyCore, CoreConfig, SimParams, HwParams
+
+fit = {"a": 1.2e-3, "b": -0.35}           # HX711 보정 결과 (하중 7점 최소제곱 — fit_linear)
+core = SherpyCore(CoreConfig(SimParams(), HwParams(), fit, reelMode="tension", L0=leash_initial_m))
+t0 = time.monotonic()
+while True:
+    out = core.step({
+        "t": time.monotonic() - t0,
+        "loadRaw": hx711.read_if_ready(),            # 준비 안 됐으면 None
+        "encRaw": as5600.raw_angle(),                 # 0~4095, 실패 시 None (CONF.HYST=00)
+        "cam": detector.latest(),                     # {"u": px, "h": px} 또는 None
+        "odo": {"v": wheel_speed(), "yawRate": gyro_z()},
+        "geom": None,                                 # 장애물 인식이 생기면 이격거리 dict
+    })
+    driver.set(out["cmd"]["v"], out["cmd"]["steer"])
+    reel.set_speed(out["cmd"]["reelRate"])            # m/s (+ 인출)
+    if out["hold"]: hal.brake()
+    core_out = out
+    time.sleep(max(0, 0.04 - (time.monotonic() - t0) % 0.04))
+```
+
+검증: `cd robot && python -m sherpy_core.verify_golden` (먼저 웹 저장소에서 `npm run verify:math` 로 골든 로그 생성)
 
 ---
 

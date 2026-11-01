@@ -58,6 +58,21 @@ SSE가 불안정하면 2초 폴링으로 폴백하세요.
 
 ---
 
+## 로봇 안의 처리 — 0.04초 한 사이클 (2026-11-01)
+
+```
+HX711 count ─┐                    ┌─ θ̂, d̂, 1σ ─┐
+AS5600 12bit ├─ ① 구하기 ─ ② EKF ─┤            ├─ ③ L0~L3 ─ ④ v·δ·릴 L̇
+카메라 u,h px ┘  T, L, θ            └─ 지도 위치  ┘    (HOLD 래치)
+```
+
+- 같은 계산이 웹(`src/lib/sherpy/core`, 시뮬레이터·시연 모드)과 로봇(`robot/sherpy_core`)에 있다. 골든 테스트로 일치를 확인한다.
+- 텔레메트리(1 Hz)는 결과만 올린다: `tension_n`, `tension_filt_n`, `leash_len_m`, `dog_bearing_deg`, `dog_dist_m`, `dog_sigma_m`, `dog_track`.
+- 앱은 로봇 GPS·방위 + θ̂·d̂ 로 강아지 지도 위치를 계산한다 (`lib/sherpy/geo.ts`, WGS84 국소 접평면).
+- 식·검증·출처: [MATH_MODEL.md](MATH_MODEL.md)
+
+---
+
 ## 안전 정책 ⚠️
 
 > **원격 정지는 보조 수단입니다. 1차 안전장치는 로봇의 물리 E-stop 버튼입니다.**

@@ -241,8 +241,12 @@ pca.channels[CH_GEAR].duty_cycle = us_to_duty(gear_us)
 | S07 | 지도 (코스 탐색 + 혼잡도) | `/map` | P1 |
 | S08 | 코스 상세 | `/routes/[id]` | P1 |
 | S09 | 코스 만들기 (DIY) | `/routes/new` | P1 |
-| S10 | **셰르피 대시보드** | `/robot` | **P0** |
-| S11 | **셰르피 카메라 (WebRTC)** | `/robot/camera` | **P0** |
+| S10 | **셰르피 첫 화면** — 위성지도·줄 끝 탑뷰·카메라·위험 요약 + 폴더 | `/robot` | **P0** |
+| S10-a | 실시간 그래프 (장력·줄 길이·거리·방향각·속도·σ·단계) | `/robot/charts` | P0 |
+| S10-b | 실시간 수치 (센서 → 추정 → 명령 전체 값) | `/robot/numbers` | P0 |
+| S10-c | 주행 제어 · 코스 (티칭·자동주행·속도 제한·명령 기록) | `/robot/control` | **P0** |
+| S11 | **셰르피 카메라 (WebRTC + 강아지 검출 박스)** | `/robot/camera` | **P0** |
+| S17 | 시뮬레이션 랩 (개발·검증용) — 하위: 그래프·수치·처리 과정·설정·결과·수학 모델 | `/sim/*` | P1 |
 | S12 | 산책 중 화면 | `/walks/live` | P0 |
 | S13 | 산책 기록 목록 / 상세 | `/walks`, `/walks/[id]` | P1 |
 | S14 | 커뮤니티 목록 / 상세 / 작성 | `/community/*` | P2 |
@@ -255,19 +259,34 @@ pca.channels[CH_GEAR].duty_cycle = us_to_duty(gear_us)
 
 ### F-1. 셰르피 실시간 대시보드 ★P0
 
-**화면**: S10
+**화면**: S10 (+ S10-a~c 폴더 레이어)
+
+#### 화면 구성 (2026-11-01 재구성 — 보호자 눈높이)
+
+> 이 앱의 목적은 **보호자용 산책로봇 보조 앱**이다. 첫 화면은 쉬운 말로 "지금 괜찮은가"만 보여주고, 자세한 값은 폴더를 눌러 들어간다. 모바일에서 그래프·수치를 한 화면에 몰지 않는다.
+
+1. **히어로** — 위성지도(카카오 스카이뷰): 로봇 GPS·방위, 목줄 선(안전 단계 색), 강아지 추정 위치 + 반경 원(추정 1σ ⊕ GPS 오차), 걸어온 길. ↔ **줄 끝 확대 탑뷰**(로봇 기준, 1·2·3 m 고리, 카메라 화각, 장력 색 줄, 오차 타원). 반대쪽 보기는 작은 창으로 겹쳐 두고 누르면 바뀐다.
+   - GPS 수평오차(2.5~5 m)가 줄 길이(1.2~3 m)보다 커서, 지도는 "어느 근처", 탑뷰는 "줄 끝 정확한 위치"를 맡는다.
+2. **카메라 썸네일** (누르면 S11) + 속도·코스 진행 + 상황별 주 버튼(일시정지 / 정지 해제 / 주행 시작하기)
+3. **위험 요약** — 단계(L0~L3) + "강아지가 당기는 힘 / 줄 길이 / 강아지 거리 / 강아지 방향"
+4. **폴더** — 실시간 그래프(S10-a) · 실시간 수치(S10-b) · 주행 제어·코스(S10-c) · 카메라 전체화면(S11)
+5. **개발·검증(팀용) 폴더** — 시뮬레이션 랩(S17) · 수학 모델
+
+`/robot` 하위 화면은 `RobotProvider`(레이아웃)가 스트림과 최근 기록(4 Hz 시연 2분 / 1 Hz 실로봇 8분)을 공유해, 폴더를 오가도 연결·그래프가 끊기지 않는다.
 
 #### 표시 항목
 
 | 항목 | 출처 | 표현 |
 |---|---|---|
 | 연결 상태 | `last_seen_at` | 온라인(3초 이내) / 지연 / 오프라인 |
-| **장력** | SBA-50L + HX711 | 게이지 0~50N, 임계선 표시 (8 / 30 / 40N) |
+| **장력** | SBA-50L + HX711 → T = aX + b → F̂ | 막대·게이지, 임계선 주의 8 / 경고 16 / 정지 35 N (SHERPY 7.3) |
 | **줄 길이** | AS5600 회전각 (겹감김 닫힌 해) | 1.2~3.0 m 바, L_SOFT 2.76 / L_MAX 3.0 (SHERPY 7.3) |
-| 주행 속도 | 스로틀 지령 + 추정 | m/s |
+| **강아지 거리 d̂ · 방향 θ̂** | 칼만 필터 (줄 L + T/k, 카메라 θ) | m · ° (+오른쪽), 1σ, 추적 상태(추적/가림 예측/실패) |
+| **강아지 지도 위치** | 로봇 GPS + 방위 + θ̂·d̂ (`lib/sherpy/geo.ts`) | 위성지도 점 + 반경 원 |
+| 주행 속도 | 지령 + GPS 실측 | m/s |
 | 조향 | 조향 지령 | −1(좌) ~ +1(우) 인디케이터 |
 | **안전등급** | `safety.py` L0~L3 | 색상 배지 (초록/노랑/주황/빨강) |
-| 고장 코드 | F1~F6 | 발생 시 배너 + 설명 |
+| 고장 코드 | F1~F8 (F7 줄 걸림 의심, F8 강아지 추적 실패 추가) | 발생 시 배너 + 설명 |
 | 주행 모드 | idle / teach / follow / estop | 칩 |
 | 경로 진행도 | `kf_index / kf_total` | 진행바 |
 | 매칭 신뢰도 | ORB 매칭 품질 | 0~1, 0.5 미만 시 경고 |
@@ -294,7 +313,7 @@ pca.channels[CH_GEAR].duty_cycle = us_to_duty(gear_us)
 | `START_FOLLOW` | 저장 경로 자동주행 시작 | **확인 필요** |
 | `PAUSE` / `RESUME` | 일시정지 / 재개 | 일반 |
 | `SET_ROUTE` | 주행할 경로 지정 | 일반 |
-| `SET_SPEED_LIMIT` | 최대속도 제한 (0.5~1.5 m/s) | 일반 |
+| `SET_SPEED_LIMIT` | 최대속도 제한 (0.3~1.2 m/s, 7.3 기본 0.8) | 일반 |
 
 #### ⚠️ 안전 정책 — 반드시 지킬 것
 
@@ -507,6 +526,28 @@ T_surface ≈ T_air + k × (1 − 운량/10) × 주간계수
 - 신고: 원문 스냅샷 확인 → 기각 / 메시지 삭제 / 삭제+작성자 정지
 - 회원: 목록, 이용 정지·해제
 
+### F-12. 강아지 위치 추정 + 시뮬레이션 랩 ★P0/P1 (2026-11-01)
+
+**목표**: 장력 T · 릴 길이 L · 방향각 θ 세 변수를 구하고 → 통합해 강아지 위치를 추정하고 → 페일세이프 판단으로 명령한다. 자세한 식·검증은 [MATH_MODEL.md](MATH_MODEL.md).
+
+| 항목 | 내용 |
+|---|---|
+| 기준 | SHERPY 7.3 (팀 「셰르피 공식 1·2」, sherpy-simulator.vercel.app). 웹 이식본이 원본과 224조합 비트 단위 일치 |
+| 추정 | EKF — θ(카메라) + d = L + T/k(줄 팽팽) + d ≤ L(느슨, 제약) + 카메라 거리. 위치 RMS 1.6 cm (시뮬) |
+| 안전 | L0~L3. L3 는 HOLD 래치·자동 복귀 없음. 센서는 시간 기준 판정(로드셀 0.2 s, 카메라 0.5 s, 엔코더 동일값 25프레임) |
+| 로봇 | `robot/sherpy_core` (파이썬) — 웹과 골든 테스트 최대 9×10⁻¹² 일치 |
+| 시연 모드 | 가상 로봇이 같은 물리+파이프라인(LiveSim, 25 Hz)으로 움직이고 4 Hz 텔레메트리 |
+| 시뮬레이션 랩 | `/sim` — 기준(7.3)/실전 모드, 환경 4 × 시나리오 6, 변수 13개, 재생·탐색, 그래프·수치·처리 과정·결과(JSON)·수학 모델 |
+
+#### 수용 기준
+
+- [x] `npm run verify:73` — 7.3 원본과 오차 0
+- [x] `npm run verify:math` — 단위검증·시나리오·몬테카를로 오경보 0·파이썬 대조 통과
+- [ ] 실로봇: HX711 보정(R² 기록), AS5600 HYST=0 확인, 카메라 체커보드 보정 후 θ 오차 1° 이내
+- [ ] 팀 결정: §16-x (줄 강성, 릴 장력 제어, L2 규칙, 판정 시간)
+
+---
+
 ### F-8. 마켓 ★P3 (명목상)
 
 - 상품 목록 그리드 + 상세 화면
@@ -582,10 +623,13 @@ T_surface ≈ T_air + k × (1 − 운량/10) × 주간계수
   "route_id": 12,
   "kf_index": 34, "kf_total": 120,
   "match_quality": 0.78,
-  "battery_v": null
+  "battery_v": null,
+  "dog_bearing_deg": 3.2, "dog_dist_m": 1.55, "dog_sigma_m": 0.02, "dog_track": "ok",
+  "tension_filt_n": 2.1
 }
 ```
 
+- `dog_*` 는 로봇의 `sherpy_core.SherpyCore` 출력 (θ̂ 는 로봇 기준 + 오른쪽). 지도 위치는 앱이 GPS·방위로 계산한다. 구버전 로봇이 안 보내도 된다(nullable).
 - 전송 주기 **1Hz**, 실패 시 최대 30개까지 로컬 버퍼링 후 재전송
 - 인증: 로봇별 발급 API 키를 `Authorization: Bearer <robot_api_key>` 헤더에 실음
 
@@ -871,8 +915,13 @@ sherpy/
 │   │   │   │   ├── [id]/page.tsx   S08
 │   │   │   │   └── new/page.tsx    S09
 │   │   │   ├── robot/
-│   │   │   │   ├── page.tsx        S10 대시보드
-│   │   │   │   └── camera/page.tsx S11 WebRTC
+│   │   │   │   ├── layout.tsx      RobotProvider (스트림·기록 공유)
+│   │   │   │   ├── page.tsx        S10 첫 화면
+│   │   │   │   ├── charts/         S10-a 실시간 그래프
+│   │   │   │   ├── numbers/        S10-b 실시간 수치
+│   │   │   │   ├── control/        S10-c 주행 제어·코스
+│   │   │   │   └── camera/page.tsx S11 WebRTC + 검출 박스
+│   │   │   ├── sim/                S17 시뮬레이션 랩 (SimProvider + 6개 레이어)
 │   │   │   ├── walks/
 │   │   │   │   ├── page.tsx        S13 목록
 │   │   │   │   ├── [id]/page.tsx   S13 상세
@@ -900,6 +949,7 @@ sherpy/
 │   │       ├── air/route.ts
 │   │       └── crowd/route.ts                  ← mock
 │   ├── components/
+│   │   ├── sherpy/                 TopView·SatMap·PovCamera·DangerCard·FolderList·LiveChart·Transport
 │   │   ├── robot/
 │   │   │   ├── TensionGauge.tsx
 │   │   │   ├── LeashBar.tsx
@@ -916,16 +966,21 @@ sherpy/
 │   │   ├── weather/
 │   │   │   ├── grid.ts             위경도 → 기상청 격자 변환
 │   │   │   └── walk-score.ts       적합도 산출
-│   │   └── robot/
-│   │       ├── telemetry-schema.ts
-│   │       └── commands.ts
+│   │   ├── robot/
+│   │   │   ├── types.ts            텔레메트리 스키마·THRESHOLDS
+│   │   │   └── demo-robot.ts       시연 가상 로봇 (LiveSim 구동)
+│   │   └── sherpy/                 🆕 수학 모델 (docs/MATH_MODEL.md)
+│   │       ├── params.ts · world.ts · simulate.ts · live.ts · geo.ts
+│   │       └── core/               calib · reel · camera · tracker(EKF) · safety · pipeline
 │   ├── hooks/
 │   │   ├── useRobotStream.ts       SSE 구독 + 재연결
 │   │   └── useGeolocation.ts
 │   └── styles/tokens.css
 ├── scripts/
 │   ├── seed.ts                     마켓·혼잡도 더미 데이터
-│   └── mock-robot.ts               🔑 가짜 로봇 텔레메트리 송신기
+│   ├── mock-robot.ts               🔑 가짜 로봇 텔레메트리 송신기
+│   ├── verify-73.ts                7.3 원본 대조 (fixtures/sherpy73-reference.mjs)
+│   └── verify-math.ts              수학 단위검증 + 골든 로그 → 파이썬 대조
 ├── drizzle/                        마이그레이션
 ├── .env.example
 └── README.md
@@ -942,9 +997,10 @@ robot/
 │   ├── leash.py / safety.py
 │   └── main.py
 ├── bridge/                         🆕
-│   ├── config.py                   ROBOT_ID, API_KEY, SERVER_URL
-│   ├── telemetry.py                1Hz POST + 로컬 버퍼
+│   ├── config.py                   ROBOT_ID, API_KEY, SERVER_URL, THRESHOLDS(7.3)
+│   ├── telemetry.py                1Hz POST + 로컬 버퍼 (dog_* 필드 포함)
 │   └── commands.py                 1Hz 폴링 + ack
+├── sherpy_core/                    🆕 25 Hz 처리 파이프라인 (웹 core/ 와 동일 계산)
 ├── mediamtx.yml                    WebRTC 설정
 └── systemd/
     ├── walkbot.service

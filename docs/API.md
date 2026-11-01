@@ -56,10 +56,17 @@
   "route_id": 12,
   "kf_index": 34, "kf_total": 120,
   "match_quality": 0.78,
-  "battery_v": null
+  "battery_v": null,
+  "dog_bearing_deg": 3.2,
+  "dog_dist_m": 1.55,
+  "dog_sigma_m": 0.02,
+  "dog_track": "ok",
+  "tension_filt_n": 2.1
 }
 ```
 
+- `dog_*` (2026-11-01, 모두 선택): 로봇 `sherpy_core` 의 강아지 추정 — `dog_bearing_deg` θ̂(로봇 기준, + 오른쪽, −180~180), `dog_dist_m` d̂(0~20), `dog_sigma_m` 위치 1σ, `dog_track` `ok|coast|lost`. `tension_filt_n` 은 안전 판단에 쓴 필터 장력 F̂. 앱이 GPS·방위로 강아지 지도 위치를 계산한다 ([MATH_MODEL.md](MATH_MODEL.md)).
+- `safety_level` 기준은 SHERPY 7.3: L2 F̂ ≥ 16 N, L3 F̂ ≥ 35 N 또는 센서 고장. 고장 코드 F7 줄 걸림 의심, F8 강아지 추적 실패 추가.
 - `speed_cmd` 는 **지령** 속도, `speed_mps` 는 로봇 GPS로 잰 **실측** 지면속도. 대시보드는 둘을 나란히 보여준다.
 - `gps_src` 가 `"robot"` 이면 로봇 GPS(NEO-6M, `/dev/ttyAMA0`), `"phone"` 이면 보호자 휴대폰 위치. 측위가 안 잡히면 로봇은 위치 필드를 비우고 `gps_sats` 만 보낸다.
 - `battery_v` 는 전압 ADC 가 없어 `null`. 앱은 주행 시작부터 경과시간으로 25분에 교체를 권한다.

@@ -17,7 +17,9 @@
 
 | 기능 | 상태 |
 |---|---|
-| 셰르피 실시간 대시보드 | P0 |
+| 셰르피 첫 화면 — 위성지도·줄 끝 탑뷰·카메라·위험 요약 + 폴더(그래프·수치·제어) | P0 |
+| 강아지 위치 추정 (장력·줄 길이·방향각 → 칼만 필터) | P0 |
+| 시뮬레이션 랩 `/sim` (SHERPY 7.3 엔진 · 고장 시나리오) | P1 |
 | 셰르피 원격 제어 (ESTOP·티칭·자동주행) | P0 |
 | 실시간 카메라 (WebRTC) | P0 |
 | 산책코스 추천·DIY + 지도 | P1 |
@@ -48,7 +50,7 @@ npm run mock:robot
 
 로그인은 선택입니다(게스트 우선). 어드민은 `/admin` — 비밀번호는 `.env.local` 의 `ADMIN_PASSWORD`.
 
-검증: `python scripts/qa_api.py` (API 통합 40항목) · 날씨 키 등록: `python scripts/set_weather_key.py`
+검증: `python scripts/qa_api.py` (API 통합 40항목) · `npm run verify:73` (7.3 원본 대조) · `npm run verify:math` (수학 모델 + 파이썬 대조) · 날씨 키 등록: `python scripts/set_weather_key.py`
 
 > 셰르피는 먹메이트와 **완전히 별개**입니다. 먹메이트에서는 구조·API 패턴만 참고하고 DB·계정 리소스는 공유하지 않습니다.
 
@@ -66,6 +68,7 @@ npm run mock:robot
 | [docs/DB_SCHEMA.md](docs/DB_SCHEMA.md) | 데이터 모델 |
 | [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md) | 컬러 토큰 · 컴포넌트 규칙 |
 | [docs/ROBOT_BRIDGE.md](docs/ROBOT_BRIDGE.md) | 라즈베리파이 측 설치·설정 |
+| [docs/MATH_MODEL.md](docs/MATH_MODEL.md) | **장력·길이·방향각 수학 모델 · 안전 판단 · 검증** |
 | [AGENTS.md](AGENTS.md) | **AI 에이전트 작업 규칙** |
 
 ---
@@ -87,7 +90,7 @@ npm run mock:robot
 
 PRD §2-3에 정리된 **BOM 누락 부품**이 해결되어야 일부 기능이 성립합니다.
 
-1. **라즈베리파이 카메라 모듈** — 없으면 영상 송출과 경로 기억 주행 둘 다 불가
+1. ~~라즈베리파이 카메라 모듈~~ → Camera Module 3 Wide 확보. 체커보드 보정 필요 (MATH_MODEL §1-③)
 2. **로봇 네트워크 수단** (핫스팟 또는 LTE 동글)
 3. **라즈베리파이 본체** (BOM에 micro SD만 있음)
 4. RELUNE 트윈 리드줄의 드럼 구조 — AS5600 자석 부착 방식이 여기서 결정됨

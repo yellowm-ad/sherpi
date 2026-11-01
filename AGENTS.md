@@ -21,8 +21,8 @@
   외부 API(기상청·에어코리아)는 **반드시 `/api/*` 라우트로 프록시**한다.
   `NEXT_PUBLIC_` 접두사는 카카오맵 JS 키와 영상 주소에만 쓴다.
 - **안전 관련 코드를 임의로 바꾸지 않는다.**
-  `src/lib/robot/types.ts` 의 `THRESHOLDS` 는 로봇의 `walkbot/config.py` 와
-  같은 값이어야 한다. 한쪽만 바꾸면 앱 표시와 로봇 동작이 어긋난다.
+  `src/lib/robot/types.ts` 의 `THRESHOLDS` 는 로봇의 `walkbot/config.py`·`robot/bridge/config.py`·
+  `robot/sherpy_core/params.py` 와 같은 값이어야 한다 (SHERPY 7.3: 경고 16 N · 정지 35 N · 릴 1.2~3.0 m). 한쪽만 바꾸면 앱 표시와 로봇 동작이 어긋난다.
 - 원격 정지를 **1차 안전장치로 설명하는 문구를 쓰지 않는다.** 보조 수단이다.
 - 마켓·인구밀집도에 실제 API를 붙이지 않는다. **명목상 기능**으로 확정됐다 (PRD §3-2).
 
@@ -47,6 +47,9 @@
 - 하단 탭이 가리지 않게 본문에 `pb-20`
 - 세이프에어리어는 `pb-safe`
 - 최대 폭 480px (`max-w-[480px]`) — 데스크톱에서도 모바일 레이아웃 유지
+- **레이어 분리**: 첫 화면은 보호자 눈높이로 핵심만(지도·탑뷰·카메라·위험 요약), 그래프·수치·제어는 폴더(하위 경로)로 나눈다.
+  한 화면에 그래프를 몰지 않는다. 하위 화면이 공유할 상태는 `layout.tsx` 의 Provider 에 둔다 (`RobotProvider`, `SimProvider`).
+- 보호자용 문구는 쉬운 말이 먼저, 기호(F̂, θ̂)는 작게 보조로. 시뮬레이션·수학 모델은 "개발·검증(팀용)" 묶음에 둔다.
 
 ---
 
@@ -68,7 +71,9 @@ API를 바꾸면 세 곳을 같이 고쳐야 한다:
 |---|---|
 | `src/lib/robot/types.ts` 스키마 | `scripts/mock-robot.ts`, `robot/bridge/telemetry.py` |
 | 명령 타입 추가 | `scripts/mock-robot.ts` 핸들러, `robot/bridge/commands.py` |
-| `THRESHOLDS` | 로봇 `walkbot/config.py` |
+| `THRESHOLDS` | 로봇 `walkbot/config.py`, `robot/bridge/config.py`, `robot/sherpy_core/params.py` |
+| `src/lib/sherpy/core/*` (수학 파이프라인) | `robot/sherpy_core/*.py` — 바꾼 뒤 `npm run verify:math` 통과 필수 |
+| `src/lib/sherpy/world.ts` (7.3 물리) | `npm run verify:73` 으로 원본과 오차 0 확인 |
 
 ---
 

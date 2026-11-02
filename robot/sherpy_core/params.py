@@ -63,6 +63,12 @@ class HwParams:
     dogHeight: float = 0.45
     odoSpeedNoise: float = 0.02
     gyroNoise: float = 0.01
+    # Flexi 태엽 릴 — T_s(L) = T0 + k_s·L
+    flexiT0: float = 1.5
+    flexiKs: float = 0.5
+    flexiDamp: float = 2
+    flexiRetract: float = 1.5
+    flexiLock: bool = True
 
 
 DEFAULT_PARAMS = SimParams()

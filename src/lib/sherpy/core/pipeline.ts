@@ -9,7 +9,7 @@
  * 시뮬레이터(실전 모드)와 실제 로봇(robot/sherpy_core/pipeline.py)이 같은 코드를 돈다.
  * 순수 함수형 입력(SensorPacket) → 출력(CoreOutput) 이라 기록된 센서 로그를 그대로 재생해 검증할 수 있다.
  */
-import { K, type HwParams, type SimParams } from "../params";
+import { K, flexiSpring, type HwParams, type SimParams } from "../params";
 import { countsToNewton, lowpassAlpha, type LinearFit } from "./calib";
 import { ReelOdometer, type ReelGeom } from "./reel";
 import { bearingFromPixel, rangeFromBox, type CamModel } from "./camera";
@@ -23,8 +23,9 @@ const wrapPi = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
  * tension  — 장력 제어(예압): 줄을 항상 살짝 팽팽하게 → d = L + T/k 로 거리를 mm 단위로 안다 (기본)
  * position — 7.3 위치 제어: L목표 = d̂ + 0.04 (d̂ 는 융합 추정)
  * naive    — 비교용: 융합 없이 카메라 거리만으로 L목표 = d_cam + 0.04  (실패 사례 시연)
+ * flexi    — 팀 하드웨어: Flexi 태엽 릴 (모터 없음 → 릴 명령 0). 태엽이 줄을 늘 T_s(L) 로 당겨 L ≈ d
  */
-export type ReelMode = "tension" | "position" | "naive";
+export type ReelMode = "tension" | "position" | "naive" | "flexi";
 
 export interface SensorPacket {
   t: number;
@@ -50,6 +51,8 @@ export interface CoreConfig {
    *               로봇이 강아지를 끄는 경우(강아지 정지·뒤처짐, v_r ≤ 0)에만 감속.
    */
   l2Mode?: "slow" | "directional";
+  /** 예측 경고 — dT̂/dt·dL/dt 로 정지값·줄 끝 도달 시간을 계산해 L2 를 미리 켠다 (safety.ts) */
+  predict?: boolean;
 }
 
 export interface CoreOutput {
@@ -71,6 +74,8 @@ export interface CoreOutput {
   notes: string[];
   cmd: { v: number; steer: number; reelRate: number };
   nis: { bearing: number | null; rope: number | null; cam: number | null };
+  /** 변화율 — 장력 기울기 dT̂/dt [N/s], 인출 속도 dL/dt [m/s] (τ 0.1 s 미분 필터) */
+  rate: { Tdot: number; Ldot: number };
 }
 
 export class SherpyCore {
@@ -88,6 +93,9 @@ export class SherpyCore {
   private lastCmdRate = 0;
   private encHist: { meas: number; cmd: number }[] = [];
   private prevL: number;
+  private prevThat = 0;
+  Tdot = 0;
+  Ldot = 0;
 
   constructor(public cfg: CoreConfig) {
     const { hw, p } = cfg;
@@ -99,6 +107,7 @@ export class SherpyCore {
     this.safety = new SafetySupervisor({
       warn: p.warn, stop: p.stop, clearance: p.clearance, reelMax: p.reelMax,
       lcTimeout: hw.lcTimeout, camLostHold: hw.camLostHold, encFrames: K.ENCODER_STUCK_FRAMES, encTol: hw.encResidualTol,
+      predict: !!cfg.predict,
     });
     this.tracker.init(this.pose, 0, p.followDist, 0.3, 0.2);
   }
@@ -122,11 +131,16 @@ export class SherpyCore {
       this.Tfast += lowpassAlpha(dt, 0.05) * (T - this.Tfast);
       this.loadAge = 0;
     } else this.loadAge += dt;
+    // 변화율: 후진차분을 τ 0.1 s 로 한 번 더 거른다 (미분은 잡음을 키우므로)
+    const aD = lowpassAlpha(dt, 0.1);
+    this.Tdot += aD * ((this.That - this.prevThat) / dt - this.Tdot);
+    this.prevThat = this.That;
 
     // L: AS5600 언랩 → 겹감김 닫힌 해
     const L = this.odo.update(s.encRaw);
     this.encHist.push({ meas: L - this.prevL, cmd: this.lastCmdRate * dt });
     if (this.encHist.length > K.ENCODER_STUCK_FRAMES) this.encHist.shift();
+    this.Ldot += aD * ((L - this.prevL) / dt - this.Ldot);
     this.prevL = L;
     // 엔코더 잔차: "릴에 움직이라고 했는데 측정이 전혀 안 움직였다" — 단, 장력이 높으면 모터가 하중에 밀려
     // 실제로 못 움직일 수 있으므로(정상) 부하가 낮을 때만 본다. 한계(1.2 m·reelMax)에서 막힌 경우도 제외.
@@ -157,7 +171,9 @@ export class SherpyCore {
     // 줄이 팽팽하면 d = L + (T − 12·max(0, v_r))/k  (7.3 장력식의 역함수)
     let dRope: number | null = null;
     const taut = this.Tfast > 1.0 && this.loadAge === 0;
-    if (taut) dRope = L + Math.max(0, this.Tfast - K.ROPE_DAMP * Math.max(0, vRel)) / p.stiffness;
+    // Flexi: 태엽 장력 T_s(L) 은 늘어남이 아니므로 빼고 남는 것만 줄 탄성으로 본다
+    const Tbase = this.cfg.reelMode === "flexi" ? flexiSpring(hw, L) : 0;
+    if (taut) dRope = L + Math.max(0, this.Tfast - Tbase - K.ROPE_DAMP * Math.max(0, vRel)) / p.stiffness;
 
     // 줄 걸림 잔차: 줄이 말하는 거리 − 카메라가 말하는 거리 (걸리면 줄 경로가 길어져 +)
     if (dRope !== null && dCam !== null) {
@@ -190,6 +206,7 @@ export class SherpyCore {
     const so = this.safety.step({
       t: s.t, Thead: this.That, loadAge: this.loadAge, encFrozen: this.odo.sameCount, encResidual,
       camAge: this.camAge, sigmaPos: sigma, snag, reel: L, geom: s.geom ?? null,
+      Tdot: this.Tdot, Ldot: this.Ldot,
     });
 
     // ── ④ 명령 ──
@@ -210,6 +227,8 @@ export class SherpyCore {
       const Tref = this.cfg.Tref ?? 2;
       reelRate = 0.03 * (this.Tfast - Tref) + Math.max(-0.3, Math.min(0.6, vRel));
       if (this.loadAge > 0) reelRate = 0; // 장력을 모르면 릴을 움직이지 않는다
+    } else if (this.cfg.reelMode === "flexi") {
+      reelRate = 0; // 태엽 릴 — 제어 대상 아님 (잠금은 L3 때 작동기가)
     } else if (this.cfg.reelMode === "position") {
       reelRate = (clamp(rel.rho + K.REEL_SLACK, K.REEL_MIN, p.reelMax) - L) / dt;
     } else {
@@ -225,7 +244,7 @@ export class SherpyCore {
       est: { xr: rel.xr, yr: rel.yr, theta: rel.theta, d: rel.rho, sigma, vr: vRel, ellipse: this.relEllipse() },
       pose: { ...this.pose }, track, snagResidual: this.snagF,
       level: so.level, hold: so.hold, reason: so.reason, notes: so.notes,
-      cmd: { v: so.hold ? 0 : v, steer, reelRate }, nis,
+      cmd: { v: so.hold ? 0 : v, steer, reelRate }, nis, rate: { Tdot: this.Tdot, Ldot: this.Ldot },
     };
   }
 

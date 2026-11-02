@@ -137,8 +137,16 @@ export class World {
   /** 실전 모드에서만 켠다 — 줄이 장애물을 감으면 줄 경로가 직선보다 길어진다 (7.3 은 직선만) */
   wrapRope = false;
 
-  /** 줄 장력 F_t = k(ℓ − L) + 12·max(0, v_r)  (ℓ > L), 0 (ℓ ≤ L) — 원본 o.  ℓ = 줄 경로 길이 (감김 없으면 d) */
-  ropeTension() {
+  /**
+   * Flexi 태엽 릴 (팀 하드웨어) — 켜면 릴이 모터 명령을 따르지 않고 태엽으로 움직인다.
+   *   ℓ < L_cap, 팽팽:  T = T_s(ℓ) + c_s·max(0, v_r)          (태엽 + 스풀 인출 저항, 수 N)
+   *   ℓ > L_cap:        T = T_s(L_cap) + k(ℓ − L_cap) + 12·max(0, v_r)   (끝까지 풀림·잠김 → 줄 탄성)
+   *   ℓ < L (회수 지연): T = 0 (느슨)
+   *   L_cap = 잠김이면 현재 L, 아니면 reelMax
+   */
+  passive: { T0: number; ks: number; damp: number; vRet: number; lockOnHold: boolean } | null = null;
+
+  private ropePath() {
     const d = Math.hypot(this.dx - this.rx, this.dy - this.ry);
     let ux = (this.dx - this.rx) / Math.max(0.001, d), uy = (this.dy - this.ry) / Math.max(0.001, d);
     let path = d;
@@ -146,8 +154,25 @@ export class World {
       const w = wrappedPath([this.rx, this.ry], [this.dx, this.dy], this.obstacles);
       if (w) { path = w.length; ux = w.ux; uy = w.uy; }
     }
-    const stretch = Math.max(0, path - this.reel);
+    return { d, ux, uy, path };
+  }
+
+  get flexiLocked() { return !!this.passive && this.passive.lockOnHold && this.mode === "HOLD"; }
+
+  /** 줄 장력 F_t = k(ℓ − L) + 12·max(0, v_r)  (ℓ > L), 0 (ℓ ≤ L) — 원본 o.  ℓ = 줄 경로 길이 (감김 없으면 d) */
+  ropeTension() {
+    const { d, ux, uy, path } = this.ropePath();
     const vr = (this.dvx - this.rv * Math.sin(this.psi)) * ux + (this.dvy - this.rv * Math.cos(this.psi)) * uy;
+    if (this.passive) {
+      const f = this.passive;
+      const cap = this.flexiLocked ? this.reel : this.p.reelMax;
+      const Ts = (L: number) => f.T0 + f.ks * Math.max(0, L);
+      const T = path > cap ? Ts(cap) + this.p.stiffness * (path - cap) + K.ROPE_DAMP * Math.max(0, vr)
+        : path >= this.reel - 1e-3 ? Ts(path) + f.damp * Math.max(0, vr)
+        : 0;
+      return { d, ux, uy, T, vr, path };
+    }
+    const stretch = Math.max(0, path - this.reel);
     const T = stretch > 0 ? this.p.stiffness * stretch + K.ROPE_DAMP * Math.max(0, vr) : 0;
     return { d, ux, uy, T, vr, path };
   }
@@ -209,6 +234,15 @@ export class World {
 
     // 릴: L목표 = clamp(d새 + 0.04, 1.2, reelMax). FOLLOW: 회수 ≤ 0.5 · 인출 ≤ 0.65 m/s, HOLD: 인출 금지
     const dNew = Math.hypot(this.dx - this.rx, this.dy - this.ry);
+    if (this.passive) {
+      // 태엽 릴: 당기면 즉시 풀리고(질량 무시) 다가오면 v_ret 이하로 감는다. 잠김이면 그대로
+      const { path } = this.ropePath();
+      if (!this.flexiLocked) {
+        this.reel = path >= this.reel ? Math.min(path, p.reelMax) : Math.max(path, this.reel - this.passive.vRet * dt);
+        this.reel = clamp(this.reel, 0.3, p.reelMax);
+      }
+      return dNew;
+    }
     const target = clamp((reelTarget ?? dNew + K.REEL_SLACK), K.REEL_MIN, p.reelMax);
     this.reel += this.mode === "FOLLOW"
       ? clamp(target - this.reel, -K.REEL_IN * dt, K.REEL_OUT * dt)

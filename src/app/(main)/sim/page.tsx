@@ -51,7 +51,7 @@ export default function SimHome() {
           <span className="chip" data-active="true">{fusion ? "실전 모드" : "기준 모드"}</span>
           <span className="chip">{ENV_LABEL[s.env]}</span>
           <span className="chip">{SCENARIO_LABEL[s.scenario]}</span>
-          {fusion && <span className="chip">{s.fusion.reelMode === "tension" ? "릴 장력 제어" : s.fusion.reelMode === "position" ? "릴 위치 제어" : "카메라만"}</span>}
+          {fusion && <span className="chip">{s.fusion.reelMode === "tension" ? "릴 장력 제어" : s.fusion.reelMode === "flexi" ? "Flexi 태엽 릴" : s.fusion.reelMode === "position" ? "릴 위치 제어" : "카메라만"}</span>}
         </Link>
 
         <section className="card-lift relative mt-3 overflow-hidden">

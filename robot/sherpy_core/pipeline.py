@@ -31,6 +31,7 @@ class CoreConfig:
     reelMode: str = "tension"  # tension | position | naive
     L0: float = 1.6
     Tref: float = 2.0
+    predict: bool = False
 
 
 class SherpyCore:
@@ -43,7 +44,8 @@ class SherpyCore:
         self.prev_L = cfg.L0
         self.cam = CamModel(hw.camFx, hw.camFy, hw.camW / 2, hw.camK1, hw.camYawEst, hw.camW)
         self.safety = SafetySupervisor(SafetyCfg(p.warn, p.stop, p.clearance, p.reelMax,
-                                                 hw.lcTimeout, hw.camLostHold, K.ENCODER_STUCK_FRAMES, hw.encResidualTol))
+                                                 hw.lcTimeout, hw.camLostHold, K.ENCODER_STUCK_FRAMES, hw.encResidualTol,
+                                                 predict=bool(cfg.predict)))
         self.tracker.init(self.pose, 0.0, p.followDist, 0.3, 0.2)
         self.That = 0.0
         self.Tfast = 0.0
@@ -53,6 +55,9 @@ class SherpyCore:
         self.snag_time = 0.0
         self._last_cmd_rate = 0.0
         self._enc_hist = []
+        self.prev_That = 0.0
+        self.Tdot = 0.0
+        self.Ldot = 0.0
 
     def step(self, s):
         p, hw = self.cfg.p, self.cfg.hw
@@ -72,11 +77,15 @@ class SherpyCore:
             self.load_age = 0.0
         else:
             self.load_age += dt
+        aD = lowpass_alpha(dt, 0.1)
+        self.Tdot += aD * ((self.That - self.prev_That) / dt - self.Tdot)
+        self.prev_That = self.That
 
         L = self.odo.update(s.get("encRaw"))
         self._enc_hist.append((L - self.prev_L, self._last_cmd_rate * dt))
         if len(self._enc_hist) > K.ENCODER_STUCK_FRAMES:
             self._enc_hist.pop(0)
+        self.Ldot += aD * ((L - self.prev_L) / dt - self.Ldot)
         self.prev_L = L
         sum_cmd = 0.0
         for _, c in self._enc_hist:
@@ -105,7 +114,8 @@ class SherpyCore:
             nis["bearing"], cam_used = u["nis"], u["used"]
         d_rope = None
         if self.Tfast > 1.0 and self.load_age == 0:
-            d_rope = L + max(0.0, self.Tfast - K.ROPE_DAMP * max(0.0, v_rel)) / p.stiffness
+            T_base = (hw.flexiT0 + hw.flexiKs * max(0.0, L)) if self.cfg.reelMode == "flexi" else 0.0
+            d_rope = L + max(0.0, self.Tfast - T_base - K.ROPE_DAMP * max(0.0, v_rel)) / p.stiffness
 
         if d_rope is not None and d_cam is not None:
             self.snagF += lowpass_alpha(dt, 0.3) * (d_rope - d_cam - self.snagF)
@@ -136,7 +146,7 @@ class SherpyCore:
         so = self.safety.step({
             "t": s["t"], "Thead": self.That, "loadAge": self.load_age, "encFrozen": self.odo.same_count,
             "encResidual": enc_residual, "camAge": self.cam_age, "sigmaPos": sigma, "snag": snag,
-            "reel": L, "geom": s.get("geom"),
+            "reel": L, "geom": s.get("geom"), "Tdot": self.Tdot, "Ldot": self.Ldot,
         })
 
         # ④ 명령
@@ -156,6 +166,8 @@ class SherpyCore:
             reel_rate = 0.03 * (self.Tfast - self.cfg.Tref) + max(-0.3, min(0.6, v_rel))
             if self.load_age > 0:
                 reel_rate = 0.0
+        elif mode == "flexi":
+            reel_rate = 0.0
         elif mode == "position":
             reel_rate = (clamp(rel["rho"] + K.REEL_SLACK, K.REEL_MIN, p.reelMax) - L) / dt
         else:
@@ -175,6 +187,7 @@ class SherpyCore:
             "track": track, "snagResidual": self.snagF,
             "level": so["level"], "hold": so["hold"], "reason": so["reason"], "notes": so["notes"],
             "cmd": {"v": 0.0 if so["hold"] else v, "steer": steer, "reelRate": reel_rate},
+            "rate": {"Tdot": self.Tdot, "Ldot": self.Ldot},
         }
 
     def resume(self, clear):

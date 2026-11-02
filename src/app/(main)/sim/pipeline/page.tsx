@@ -92,7 +92,7 @@ export default function SimPipeline() {
           </div>
           <p className="mt-2 text-[11px] leading-relaxed text-muted">
             v = clamp(dogSpeed + 1.2(d̂ − followDist), 0, robotMax) · δ = clamp(1.4·θ̂, ±{s.p.steerMax}°) ·
-            릴 {s.fusion.reelMode === "tension" ? "L̇ = 0.03(T − 2 N) + v_r" : "L목표 = d̂ + 0.04"} (인출 ≤ 0.65, 회수 ≤ 0.5 m/s)
+            {s.fusion.reelMode === "flexi" ? "릴 = Flexi 태엽 (명령 없음, T_s = 1.5 + 0.5·L N, L3 때 잠금)" : <>릴 {s.fusion.reelMode === "tension" ? "L̇ = 0.03(T − 2 N) + v_r" : "L목표 = d̂ + 0.04"} (인출 ≤ 0.65, 회수 ≤ 0.5 m/s)</>}
           </p>
         </Stage>
         <p className="text-center text-[11px] text-muted">이 계산은 robot/sherpy_core (파이썬)과 같은 코드 — 차이 10⁻¹¹ 이하로 검증됨</p>

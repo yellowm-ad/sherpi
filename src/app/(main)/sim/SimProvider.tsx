@@ -14,11 +14,11 @@ export interface SimSettings {
   env: EnvKey;
   scenario: ScenarioKey;
   mode: SimMode;
-  fusion: Pick<FusionOpts, "reelMode" | "smoothAccel" | "seed"> & { l2Mode: "slow" | "directional" };
+  fusion: Pick<FusionOpts, "reelMode" | "smoothAccel" | "seed"> & { l2Mode: "slow" | "directional"; predict: boolean };
 }
 export const DEFAULT_SETTINGS: SimSettings = {
   p: DEFAULT_PARAMS, env: "park", scenario: "normal", mode: "fusion",
-  fusion: { reelMode: "tension", smoothAccel: true, seed: 1, l2Mode: "slow" },
+  fusion: { reelMode: "tension", smoothAccel: true, seed: 1, l2Mode: "slow", predict: false },
 };
 
 interface Ctx {

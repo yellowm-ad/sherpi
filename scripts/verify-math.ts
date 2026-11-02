@@ -130,13 +130,13 @@ for (const env of ENVS) for (const scn of SCN) {
 
 console.log("\nD. 골든 로그 (파이썬 대조용)");
 mkdirSync("scripts/fixtures", { recursive: true });
-for (const [env, scn, reelMode] of [["park", "normal", "tension"], ["dense", "pull", "tension"], ["walk", "encoder", "position"], ["park", "camera", "tension"]] as const) {
-  const r = runFusion(DEFAULT_PARAMS, env, scn, { ...DEFAULT_FUSION, reelMode, record: true });
+for (const [env, scn, reelMode, predict] of [["park", "normal", "tension", false], ["dense", "pull", "tension", false], ["walk", "encoder", "position", false], ["park", "camera", "tension", false], ["park", "pull", "flexi", true], ["walk", "normal", "flexi", true]] as const) {
+  const r = runFusion(DEFAULT_PARAMS, env, scn, { ...DEFAULT_FUSION, reelMode, predict, record: true });
   const g = {
-    env, scenario: scn, reelMode, p: DEFAULT_PARAMS, hw: DEFAULT_HW, fit: { a: r.calib!.a, b: r.calib!.b }, L0: r.log!.L0,
+    env, scenario: scn, reelMode, predict, p: DEFAULT_PARAMS, hw: DEFAULT_HW, fit: { a: r.calib!.a, b: r.calib!.b }, L0: r.log!.L0,
     packets: r.log!.packets, outputs: r.log!.outputs.map((o) => ({ ...o, est: { ...o.est, ellipse: undefined } })),
   };
-  const file = `scripts/fixtures/golden-${env}-${scn}-${reelMode}.json`;
+  const file = `scripts/fixtures/golden-${env}-${scn}-${reelMode}${predict ? "-pred" : ""}.json`;
   writeFileSync(file, JSON.stringify(g));
   console.log(`  · ${file} (${g.packets.length} 프레임)`);
 }

@@ -42,6 +42,7 @@ export interface EstFrame {
 export interface SimFrame extends TruthFrame {
   level: Level;
   ropePath: number;      // m 실제 줄 경로 길이 (감김 포함)
+  reason?: string | null; // 실전 모드 — 그 프레임의 L2/L3 사유
   est: EstFrame | null;  // 실전 모드만
 }
 
@@ -67,6 +68,8 @@ export interface FusionOpts {
   /** 센서 로그·출력 기록 (골든 테스트·로그 내보내기용) */
   record?: boolean;
   l2Mode?: "slow" | "directional";
+  /** 예측 경고 (dT/dt · dL/dt) */
+  predict?: boolean;
 }
 export const DEFAULT_FUSION: FusionOpts = { reelMode: "tension", smoothAccel: true, seed: 1, hw: DEFAULT_HW };
 
@@ -105,11 +108,16 @@ export function runFusion(p: SimParams, env: EnvKey, scenario: ScenarioKey, o: F
   w.wrapRope = true;
   // 출발 자세: 장력 제어는 줄을 예압(2 N)만큼 당긴 상태로 시작한다 (느슨하게 출발하면 첫 0.3초에 줄이 '탁' 걸린다)
   if (o.reelMode === "tension") w.reel = p.followDist - 2 / p.stiffness;
+  // Flexi 태엽 릴: 모터 대신 태엽이 줄을 감는다 — 출발 때 이미 팽팽(L = d)
+  if (o.reelMode === "flexi") {
+    w.passive = { T0: hw.flexiT0, ks: hw.flexiKs, damp: hw.flexiDamp, vRet: hw.flexiRetract, lockOnHold: hw.flexiLock };
+    w.reel = p.followDist;
+  }
   const L0 = w.reel;
   const log = o.record ? { L0, packets: [] as SensorPacket[], outputs: [] as CoreOutput[] } : undefined;
   const geom: ReelGeom = { r0: hw.reelCore, t: hw.ropeThick, w: hw.drumWidth, Ltot: hw.ropeTotal };
   const camTrue: CamModel = { fx: hw.camFx, fy: hw.camFy, cx: hw.camCx, k1: hw.camK1, yaw: hw.camYaw, W: hw.camW };
-  const core = new SherpyCore({ p, hw, fit: calib.fit, reelMode: o.reelMode, L0, l2Mode: o.l2Mode ?? "slow" });
+  const core = new SherpyCore({ p, hw, fit: calib.fit, reelMode: o.reelMode, L0, l2Mode: o.l2Mode ?? "slow", predict: !!o.predict });
 
   const frames: SimFrame[] = [];
   const events: SafetyEvent[] = [];
@@ -185,7 +193,7 @@ export function runFusion(p: SimParams, env: EnvKey, scenario: ScenarioKey, o: F
       t, robot: [w.rx, w.ry], dog: [w.dx, w.dy], psi: w.psi, rv: w.rv, dogV: Math.hypot(w.dvx, w.dvy),
       dist: dNew, reel: w.reel, tension: T, filtered: out.That, rope: g.rope, body: g.body,
       mode: w.mode, encoder: out.L, camera: out.dCam, theta, steer: out.cmd.steer, vCmd: out.cmd.v,
-      level: out.level, ropePath: path,
+      level: out.level, ropePath: path, reason: out.reason,
       est: {
         x: estX, y: estY, d: out.est.d, theta: out.est.theta, sigma: out.est.sigma,
         ellipse: { ...out.est.ellipse, angle: out.est.ellipse.angle - w.psi },

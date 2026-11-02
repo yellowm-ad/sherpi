@@ -25,11 +25,24 @@ export interface SafetyInput {
   snag: boolean;            // 줄 걸림 의심 (잔차)
   reel: number;             // m
   geom: { body: number; rope: number; robotEdge: number; dogEdge: number } | null;
+  /** 예측 경고용 변화율 (predict 켤 때만) — 필터 장력의 기울기 dT̂/dt [N/s], 인출 속도 dL/dt [m/s] */
+  Tdot?: number;
+  Ldot?: number;
 }
 
 export interface SafetyCfg {
   warn: number; stop: number; clearance: number; reelMax: number;
   lcTimeout: number; camLostHold: number; encFrames: number; encTol: number;
+  /**
+   * 예측 경고 (팀 보드 WARNING: "장력 급상승 · 리드 길이 급증").  지금 값이 아니라 '언제 넘을지'로 판단한다.
+   *   장력 도달 시간   t_T = (stop − T̂) / (dT̂/dt)     (dT̂/dt > 0, T̂ ≥ warn/2)
+   *   줄 끝 도달 시간  t_L = (reelMax − L) / (dL/dt)    (dL/dt > 0.2 m/s, L ≥ 0.6·reelMax)
+   *   min(t_T, t_L) < horizon  →  L2 를 미리 켜고 holdFor 초 유지
+   * horizon ≈ 제동시간 v/a + 지연 = 0.8/1.9 + 0.2 ≈ 0.6 s → 여유 두고 1.0 s
+   */
+  predict?: boolean;
+  horizon?: number;
+  holdFor?: number;
 }
 
 export interface SafetyOut { level: Level; hold: boolean; reason: string | null; notes: string[]; speedCap: number | null }
@@ -39,6 +52,8 @@ export class SafetySupervisor {
   holdReason: string | null = null;
   holdAt: number | null = null;
   private warnOn = false;
+  private predUntil = -1;
+  private predReason: string | null = null;
 
   constructor(public cfg: SafetyCfg) {}
 
@@ -73,6 +88,18 @@ export class SafetySupervisor {
     if (this.warnOn) { if (i.Thead < c.warn - 2) this.warnOn = false; }
     else if (i.Thead >= c.warn) this.warnOn = true;
 
+    if (c.predict) {
+      const H = c.horizon ?? 1.0;
+      const Td = i.Tdot ?? 0, Ld = i.Ldot ?? 0;
+      const tT = Td > 0.5 && i.Thead >= c.warn / 2 ? (c.stop - i.Thead) / Td : Infinity;
+      const tL = Ld > 0.2 && i.reel >= 0.6 * c.reelMax ? (c.reelMax - i.reel) / Ld : Infinity;
+      if (Math.min(tT, tL) < H) {
+        this.predUntil = i.t + (c.holdFor ?? 0.5);
+        this.predReason = tT <= tL ? "장력 급상승 (정지값 도달 예상)" : "리드줄 끝 도달 예상";
+      }
+    }
+    const predOn = i.t <= this.predUntil;
+
     const notes: string[] = [];
     if (i.camAge > 0.1 && i.camAge <= c.camLostHold) notes.push("카메라 일시 가림 — 예측으로 추적 중");
     if (i.Thead >= c.warn / 2 && !this.warnOn) notes.push("장력 상승");
@@ -81,6 +108,7 @@ export class SafetySupervisor {
 
     if (this.hold) return { level: 3, hold: true, reason: this.holdReason, notes, speedCap: 0 };
     if (this.warnOn) return { level: 2, hold: false, reason: "장력 경고", notes, speedCap: 0.2 };
+    if (predOn) return { level: 2, hold: false, reason: this.predReason, notes, speedCap: 0.2 };
     return { level: notes.length ? 1 : 0, hold: false, reason: null, notes, speedCap: null };
   }
 }

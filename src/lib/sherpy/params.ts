@@ -133,6 +133,13 @@ export interface HwParams {
   // 오도메트리
   odoSpeedNoise: number; // 비율
   gyroNoise: number;     // rad/s
+  // ④ Flexi 자동 리드줄(태엽 릴) — 팀 하드웨어. 모터가 아니라 태엽이 줄을 감는다
+  //    T_s(L) = T0 + k_s·L (태엽 토크 ÷ 반경),  인출 저항 c_s·L̇,  회수 속도 ≤ v_ret
+  flexiT0: number;       // N 다 감겼을 때 태엽 장력
+  flexiKs: number;       // N/m 인출 1 m 당 태엽 장력 증가
+  flexiDamp: number;     // N·s/m 스풀 관성·마찰 등가 감쇠
+  flexiRetract: number;  // m/s 태엽 최대 회수 속도
+  flexiLock: boolean;    // L3 때 잠금 버튼을 누르는 작동기(솔레노이드·서보)가 있는가
 }
 
 export const DEFAULT_HW: HwParams = {
@@ -141,4 +148,8 @@ export const DEFAULT_HW: HwParams = {
   camW: 640, camFx: 300, camFy: 300, camCx: 324, camK1: -0.08, camYaw: 0.026, camYawEst: 0.022,
   camPxNoise: 2.5, camHNoise: 0.05, camDrop: 0.03, camLostHold: 0.5, dogHeight: 0.45,
   odoSpeedNoise: 0.02, gyroNoise: 0.01,
+  flexiT0: 1.5, flexiKs: 0.5, flexiDamp: 2, flexiRetract: 1.5, flexiLock: true,
 };
+
+/** Flexi 태엽 장력 T_s(L) [N] */
+export const flexiSpring = (hw: Pick<HwParams, "flexiT0" | "flexiKs">, L: number) => hw.flexiT0 + hw.flexiKs * Math.max(0, L);

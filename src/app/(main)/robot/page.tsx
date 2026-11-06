@@ -31,7 +31,7 @@ const MODE = {
  * 자세한 것은 아래 폴더(그래프·수치·제어·카메라·시뮬레이션·수학 모델)로 들어가서 본다.
  */
 export default function RobotHome() {
-  const { robotId, latest, state, demo, trail, dogGeo, commands } = useRobot();
+  const { robotId, streamUrl, latest, state, demo, trail, dogGeo, commands } = useRobot();
   const [view, setView] = useState<"map" | "top">("map");
   const [busy, setBusy] = useState(false);
   const offline = state !== "online" && state !== "stale";
@@ -39,7 +39,7 @@ export default function RobotHome() {
   const mode = latest?.mode ?? "idle";
   const route = findRoute(latest?.routeId);
   const battery = useBatteryTimer(mode === "teach" || mode === "follow");
-  const stream = process.env.NEXT_PUBLIC_ROBOT_STREAM_BASE;
+  const stream = streamUrl;
 
   // L2 이상으로 올라가면 진동 + 카드 흔들림 (PRD F-1 수용기준)
   const [hit, setHit] = useState(false);

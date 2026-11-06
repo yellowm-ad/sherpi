@@ -352,18 +352,23 @@ while True:
 ## 5. 영상 (MediaMTX + Cloudflare Tunnel)
 
 ```bash
-wget https://github.com/bluenviron/mediamtx/releases/latest/download/mediamtx_linux_arm64v8.tar.gz
-tar -xzf mediamtx_linux_arm64v8.tar.gz
-cp ~/sherpy/robot/mediamtx.yml ./mediamtx.yml
-./mediamtx
+# 한 번만 설치
+mkdir -p ~/mediamtx && cd ~/mediamtx
+wget https://github.com/bluenviron/mediamtx/releases/download/v1.21.3/mediamtx_v1.21.3_linux_arm64.tar.gz
+tar -xzf mediamtx_v1.21.3_linux_arm64.tar.gz
+cd ~ && wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64.deb
+sudo dpkg -i cloudflared-linux-arm64.deb
+
+# 송출 (MediaMTX + 임시 터널 + 서버에 주소 등록까지 한 번에)
+cd ~/sherpy/robot && source .venv/bin/activate && python3 stream.py
 ```
 
-```bash
-# 공유기 포트포워딩 없이 고정 HTTPS 주소를 얻는다
-cloudflared tunnel --url http://localhost:8889
-```
+영상 주소는 **로봇마다** 서버(`robots.stream_url`)에 저장됩니다. `stream.py` 가 터널 주소를 받아
+`PUT /api/robots/:id/stream-url` 로 올리고, 앱은 `/api/me` 로 15초마다 받아 갑니다.
+`NEXT_PUBLIC_ROBOT_STREAM_BASE` 는 로봇이 주소를 안 올렸을 때의 예비값일 뿐입니다.
 
-출력된 주소를 앱 환경변수 `NEXT_PUBLIC_ROBOT_STREAM_BASE` 에 넣습니다.
+> **영상 데이터는 터널이 아니라 브라우저↔파이 직접(WebRTC)** 입니다. 같은 와이파이·핫스팟에서는 바로 되고,
+> 다른 망(LTE)에서 보려면 TURN 서버가 필요합니다.
 
 > **⚠️ Pi 5 는 하드웨어 H.264 인코더가 없습니다**(Pi 4 에는 있었음). 소프트웨어 인코딩이라
 > ORB 매칭과 CPU 를 나눠 씁니다. Pi 5 는 CPU 여유가 커서 감당할 가능성이 높지만 **실측 전**입니다.

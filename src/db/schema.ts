@@ -45,6 +45,7 @@ export const robots = sherpy.table("robots", {
   apiKeyHash: text("api_key_hash").notNull(),      // 평문 저장 금지
   pairingCode: varchar("pairing_code", { length: 8 }),
   fwVersion: varchar("fw_version", { length: 20 }),
+  streamUrl: text("stream_url"),                   // 영상 WHEP 베이스 주소 (로봇이 켤 때 직접 올림)
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });

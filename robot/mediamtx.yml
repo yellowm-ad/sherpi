@@ -4,14 +4,15 @@
 # 영상은 Vercel을 거치지 않고 로봇 ↔ 브라우저 P2P로 흐른다.
 # 서버 대역폭 비용이 0이고 지연이 낮다.
 #
-# ⚠️ 전제: 라즈베리파이 카메라 모듈이 필요하다 (현재 BOM에 없음)
+# 카메라: Camera Module 3 Wide (imx708_wide). 실행은 robot/stream.py 가 맡는다.
+# ⚠️ Pi 5 는 H.264 하드웨어 인코더가 없어 소프트웨어 인코딩 — 해상도·FPS 를 높이면 CPU 를 많이 쓴다.
 
 logLevel: info
 
 # WebRTC (WHEP) — 브라우저가 여기에 붙는다
 webrtc: yes
 webrtcAddress: :8889
-webrtcAllowOrigin: '*'
+# CORS 기본값이 '*' 라 sherpy.vercel.app 에서 바로 붙는다 (버전마다 키 이름이 달라 일부러 안 적음)
 webrtcLocalUDPAddress: :8189
 
 rtsp: no
@@ -19,11 +20,15 @@ rtmp: no
 hls: no
 
 paths:
-  cam:
+  # 경로 이름은 웹 RobotVideo 의 기본값(sherpy) 과 같아야 한다 → <주소>/sherpy/whep
+  sherpy:
     source: rpiCamera
-    rpiCameraWidth: 640
-    rpiCameraHeight: 480
+    rpiCameraWidth: 1280
+    rpiCameraHeight: 720
     rpiCameraFPS: 15
     rpiCameraBitrate: 1500000
+    # 카메라를 거꾸로 달았으면 둘 다 true (180° 회전)
+    rpiCameraHFlip: false
+    rpiCameraVFlip: false
     # 와이파이 환경에서는 1280x720 @ 30fps 로 올려도 된다.
     # 단, ORB 특징점 매칭과 CPU를 나눠 쓰므로 부하 테스트 후 결정할 것.

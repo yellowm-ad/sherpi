@@ -14,7 +14,7 @@ export async function GET() {
   if (!hasDb) return NextResponse.json({ user: null, demo: true, robots: [] });
   const user = await getSessionUser();
   const mine = user
-    ? await db.select({ id: robots.id, name: robots.name, serial: robots.serial, lastSeenAt: robots.lastSeenAt })
+    ? await db.select({ id: robots.id, name: robots.name, serial: robots.serial, lastSeenAt: robots.lastSeenAt, streamUrl: robots.streamUrl })
         .from(robots).where(eq(robots.ownerId, user.id)).orderBy(robots.id)
     : [];
   return NextResponse.json({ user, robots: mine });

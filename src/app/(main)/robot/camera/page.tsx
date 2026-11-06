@@ -18,8 +18,8 @@ import EstopButton from "@/components/robot/EstopButton";
  * 영상 주소가 없으면 시연용 화면으로 HUD 구성을 보여준다.
  */
 export default function CameraPage() {
-  const base = process.env.NEXT_PUBLIC_ROBOT_STREAM_BASE;
-  const { robotId, latest, state } = useRobot();
+  const { robotId, streamUrl, latest, state } = useRobot();
+  const base = streamUrl;
   const th = latest?.dogBearingDeg != null ? (latest.dogBearingDeg * Math.PI) / 180 : null;
   const d = latest?.dogDistM ?? null;
   const track = latest?.dogTrack ?? undefined;

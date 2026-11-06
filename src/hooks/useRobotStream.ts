@@ -42,15 +42,20 @@ export type ConnState = "connecting" | "online" | "stale" | "offline";
  * 게스트·DB 없음·등록된 로봇 없음이면 null → 브라우저 안의 가상 셰르피(demo-robot)로 시연.
  * 한 번만 묻고 결과를 모듈에 보관한다.
  */
-let mine: Promise<number | null> | null = null;
-export function myRobotId() {
-  if (!mine) {
-    mine = fetch("/api/me")
-      .then((r) => r.json())
-      .then((j) => (j.robots?.[0]?.id as number | undefined) ?? null)
-      .catch(() => null);
-  }
+type MyRobot = { id: number; streamUrl: string | null };
+const fetchMyRobot = (): Promise<MyRobot | null> =>
+  fetch("/api/me", { cache: "no-store" })
+    .then((r) => r.json())
+    .then((j) => (j.robots?.[0] as MyRobot | undefined) ?? null)
+    .catch(() => null);
+
+let mine: Promise<MyRobot | null> | null = null;
+export function myRobot() {
+  if (!mine) mine = fetchMyRobot();
   return mine;
+}
+export function myRobotId() {
+  return myRobot().then((r) => r?.id ?? null);
 }
 
 export function isDemoMode() {
@@ -66,6 +71,8 @@ export function isDemoMode() {
  */
 export function useRobotStream() {
   const [robotId, setRobotId] = useState<number | null>(null);
+  // 로봇이 올린 영상 주소 (Cloudflare 임시 터널은 켤 때마다 바뀌므로 15초마다 다시 묻는다)
+  const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [latest, setLatest] = useState<TelemetryRow | null>(null);
   const [state, setState] = useState<ConnState>("connecting");
   const [demo, setDemo] = useState(false);
@@ -82,11 +89,13 @@ export function useRobotStream() {
       else if (gap > 3_000) setState((s) => (s === "connecting" ? s : "stale"));
     }, 1000);
 
-    myRobotId().then((robotId) => {
+    myRobot().then((robot) => {
       if (!alive) return;
+      const robotId = robot?.id ?? null;
       const isDemo = robotId == null;
       setDemo(isDemo);
       setRobotId(robotId);
+      setStreamUrl(robot?.streamUrl ?? null);
 
       if (isDemo) {
         const bot = demoRobot();
@@ -129,7 +138,11 @@ export function useRobotStream() {
         } catch { /* 다음 주기에 다시 */ }
       }, 2000);
 
-      cleanup = () => { es.close(); clearInterval(poll); };
+      const streamPoll = setInterval(() => {
+        fetchMyRobot().then((r) => alive && setStreamUrl(r?.streamUrl ?? null));
+      }, 15000);
+
+      cleanup = () => { es.close(); clearInterval(poll); clearInterval(streamPoll); };
     });
 
     return () => {
@@ -139,7 +152,7 @@ export function useRobotStream() {
     };
   }, []);
 
-  return { robotId, latest, state, demo, commands, lastRecvAt: lastRecvRef.current };
+  return { robotId, streamUrl, latest, state, demo, commands, lastRecvAt: lastRecvRef.current };
 }
 
 /** 명령 발신 헬퍼 — 시연 모드면 가상 셰르피로 보낸다. robotId 를 모르면 내 로봇으로 보낸다 */

@@ -9,15 +9,19 @@
 
 logLevel: info
 
+# 쓰지 않는 기능은 끈다 (v1.21 기본 설정과 같은 true/false 표기)
+srt: false
+moq: false
+
 # WebRTC (WHEP) — 브라우저가 여기에 붙는다
-webrtc: yes
+webrtc: true
 webrtcAddress: :8889
 # CORS 기본값이 '*' 라 sherpy.vercel.app 에서 바로 붙는다 (버전마다 키 이름이 달라 일부러 안 적음)
 webrtcLocalUDPAddress: :8189
 
-rtsp: no
-rtmp: no
-hls: no
+rtsp: false
+rtmp: false
+hls: false
 
 paths:
   # 경로 이름은 웹 RobotVideo 의 기본값(sherpy) 과 같아야 한다 → <주소>/sherpy/whep

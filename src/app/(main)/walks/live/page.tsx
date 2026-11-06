@@ -25,7 +25,7 @@ const MIN_SAVE_S = 10;
  */
 export default function LiveWalk() {
   const router = useRouter();
-  const { latest, state } = useRobotStream(1);
+  const { robotId, latest, state } = useRobotStream();
   const agg = useRef(newLiveWalk());
   const startedAt = useRef(agg.current.startedAt);
   const [elapsed, setElapsed] = useState(0);
@@ -162,7 +162,7 @@ export default function LiveWalk() {
         </p>
       </div>
 
-      <EstopButton robotId={1} disabled={state === "offline"} />
+      <EstopButton robotId={robotId} disabled={state === "offline"} />
 
       <Sheet open={endOpen} title="산책을 마칠까요?" confirmLabel={elapsed < MIN_SAVE_S ? "그냥 나가기" : "종료하고 저장"}
              onClose={() => setEndOpen(false)} onConfirm={finish}>

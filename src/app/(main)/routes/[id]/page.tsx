@@ -35,7 +35,7 @@ export default function RouteDetail({ params }: { params: Promise<{ id: string }
   if (!r) return <><PageHeader title="코스" back /><p className="p-6 text-center text-muted">{Number(id) > 1000 ? "로그인한 계정의 코스예요. 로그인 후 다시 열어주세요." : "코스를 찾을 수 없습니다."}</p></>;
 
   const send = async () => {
-    await sendCommand(1, "SET_ROUTE", { route_id: r.id });
+    await sendCommand(null, "SET_ROUTE", { route_id: r.id });
     setSent(true);
     setTimeout(() => router.push("/robot"), 900);
   };

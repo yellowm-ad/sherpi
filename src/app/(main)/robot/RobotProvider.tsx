@@ -24,7 +24,7 @@ export interface Sample {
 }
 
 interface Ctx {
-  robotId: number;
+  robotId: number | null;
   latest: TelemetryRow | null;
   state: ConnState;
   demo: boolean;
@@ -39,9 +39,8 @@ const RobotCtx = createContext<Ctx | null>(null);
 const MAX = 480; // 4 Hz 시연 = 2분, 1 Hz 실로봇 = 8분
 
 export default function RobotProvider({ children }: { children: React.ReactNode }) {
-  // TODO(M1): 로그인 사용자의 로봇 id를 세션에서 가져올 것
-  const robotId = 1;
-  const { latest, state, demo, commands } = useRobotStream(robotId);
+  // 로그인 사용자에게 등록된 로봇 (없으면 null → 가상 셰르피 시연)
+  const { robotId, latest, state, demo, commands } = useRobotStream();
   const [history, setHistory] = useState<Sample[]>([]);
   const [trail, setTrail] = useState<[number, number][]>([]);
   const t0 = useRef<number | null>(null);
@@ -76,7 +75,7 @@ export default function RobotProvider({ children }: { children: React.ReactNode 
     return { ...p, radius: dogRadius(latest.dogSigmaM ?? 0.1, latest.gpsSats) };
   }, [latest]);
 
-  const value = useMemo(() => ({ robotId, latest, state, demo, commands, history, trail, dogGeo }), [latest, state, demo, commands, history, trail, dogGeo]);
+  const value = useMemo(() => ({ robotId, latest, state, demo, commands, history, trail, dogGeo }), [robotId, latest, state, demo, commands, history, trail, dogGeo]);
   return <RobotCtx.Provider value={value}>{children}</RobotCtx.Provider>;
 }
 

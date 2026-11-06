@@ -27,7 +27,7 @@ type Room = { id: number; title: string; emoji: string; lastMessage: string; tod
 /** S06 홈 — 스티치 안(2026-10-25): 검색 · 히어로 · 실시간 HUD · 날씨 · 혼잡도 · 추천 코스 · 마켓/커뮤니티 (PRD F-5) */
 export default function HomePage() {
   const router = useRouter();
-  const { latest, state } = useRobotStream(1);
+  const { latest, state } = useRobotStream();
   const user = useUser();
   const mine = useMyRoutes();
   const dog = useDog();

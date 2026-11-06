@@ -37,19 +37,24 @@ export interface TelemetryRow {
 export type ConnState = "connecting" | "online" | "stale" | "offline";
 
 /**
- * 실연동 / 시연 모드 판별.
- * /api/health 의 robotLive 가 false 면(실로봇 미연결) 브라우저 안의 가상 셰르피(demo-robot)를 쓴다.
+ * 내 로봇 id — 로그인한 보호자에게 등록된 로봇(robots.owner_id). 로봇마다 키가 따로라
+ * 앱도 로봇 번호를 고정하지 않고 계정 기준으로 찾는다.
+ * 게스트·DB 없음·등록된 로봇 없음이면 null → 브라우저 안의 가상 셰르피(demo-robot)로 시연.
  * 한 번만 묻고 결과를 모듈에 보관한다.
  */
-let demoFlag: Promise<boolean> | null = null;
-export function isDemoMode() {
-  if (!demoFlag) {
-    demoFlag = fetch("/api/health")
+let mine: Promise<number | null> | null = null;
+export function myRobotId() {
+  if (!mine) {
+    mine = fetch("/api/me")
       .then((r) => r.json())
-      .then((j) => !j.robotLive)
-      .catch(() => true);
+      .then((j) => (j.robots?.[0]?.id as number | undefined) ?? null)
+      .catch(() => null);
   }
-  return demoFlag;
+  return mine;
+}
+
+export function isDemoMode() {
+  return myRobotId().then((id) => id == null);
 }
 
 /**
@@ -59,7 +64,8 @@ export function isDemoMode() {
  * EventSource가 자동 재연결하고 Last-Event-ID로 유실분을 이어받는다.
  * 3초 이상 수신이 없으면 stale, 10초면 offline으로 본다. (PRD F-1 수용기준)
  */
-export function useRobotStream(robotId: number | null) {
+export function useRobotStream() {
+  const [robotId, setRobotId] = useState<number | null>(null);
   const [latest, setLatest] = useState<TelemetryRow | null>(null);
   const [state, setState] = useState<ConnState>("connecting");
   const [demo, setDemo] = useState(false);
@@ -67,7 +73,6 @@ export function useRobotStream(robotId: number | null) {
   const lastRecvRef = useRef<number>(Date.now());
 
   useEffect(() => {
-    if (robotId == null) return;
     let cleanup = () => {};
     let alive = true;
 
@@ -77,9 +82,11 @@ export function useRobotStream(robotId: number | null) {
       else if (gap > 3_000) setState((s) => (s === "connecting" ? s : "stale"));
     }, 1000);
 
-    isDemoMode().then((isDemo) => {
+    myRobotId().then((robotId) => {
       if (!alive) return;
+      const isDemo = robotId == null;
       setDemo(isDemo);
+      setRobotId(robotId);
 
       if (isDemo) {
         const bot = demoRobot();
@@ -130,14 +137,15 @@ export function useRobotStream(robotId: number | null) {
       clearInterval(watchdog);
       cleanup();
     };
-  }, [robotId]);
+  }, []);
 
-  return { latest, state, demo, commands, lastRecvAt: lastRecvRef.current };
+  return { robotId, latest, state, demo, commands, lastRecvAt: lastRecvRef.current };
 }
 
-/** 명령 발신 헬퍼 — 시연 모드면 가상 셰르피로 보낸다 */
-export async function sendCommand(robotId: number, type: string, payload: Record<string, unknown> = {}) {
-  if (await isDemoMode()) return { ok: true, command: demoRobot().command(type, payload) };
+/** 명령 발신 헬퍼 — 시연 모드면 가상 셰르피로 보낸다. robotId 를 모르면 내 로봇으로 보낸다 */
+export async function sendCommand(robotId: number | null | undefined, type: string, payload: Record<string, unknown> = {}) {
+  robotId = robotId ?? (await myRobotId());
+  if (robotId == null) return { ok: true, command: demoRobot().command(type, payload) };
 
   const res = await fetch(`/api/robots/${robotId}/commands`, {
     method: "POST",

@@ -135,7 +135,7 @@ function Overview() {
 
 /* ── 로봇: 실시간 모니터 + 시연 리허설 ─────────────── */
 function RobotPanel() {
-  const { latest, state, demo, commands } = useRobotStream(1);
+  const { latest, state, demo, commands } = useRobotStream();
   const inject = broadcastInject;
 
   return (

@@ -21,7 +21,7 @@ const C = 2 * Math.PI * R;
  * 1초 전에 떼면 "더 길게"라는 안내를 잠깐 띄운다 — 실패했을 때 그 자리에서 알려주는 튜토리얼.
  * 스크롤하는 동안에는 작게 줄어들어 뒤 카드를 덜 가리고, 멈추면 원래 크기로 돌아온다.
  */
-export default function EstopButton({ robotId, disabled }: { robotId: number; disabled?: boolean }) {
+export default function EstopButton({ robotId, disabled }: { robotId: number | null; disabled?: boolean }) {
   const [holding, setHolding] = useState(false);
   const [status, setStatus] = useState<"idle" | "sending" | "ok" | "fail">("idle");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);

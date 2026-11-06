@@ -47,7 +47,8 @@ class TelemetryUplink:
 
     def _build(self, s: dict) -> dict:
         return {
-            "ts": datetime.now(timezone.utc).isoformat(),
+            # 서버(zod .datetime())는 Z 표기만 받는다 — "+00:00" 이면 422
+            "ts": datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z"),
             "mode": s.get("mode", "idle"),
             "safety_level": int(s.get("safety_level", 0)),
             "faults": s.get("faults", []),

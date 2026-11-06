@@ -28,3 +28,6 @@ robot/routes_cache/
 scripts/fixtures/golden-*.json
 robot/**/__pycache__/
 .claude/settings.local.json
+
+# 로봇별 키 파일 (scripts/robot-key.mjs 출력) — 절대 커밋 금지
+robot/provision/

@@ -185,6 +185,29 @@ SHERPY_GPS_ENABLED=1
 
 > API 키는 서버 DB에 **해시로만** 저장됩니다. 평문은 이 파일에만 둡니다.
 
+### 로봇마다 키 따로 발급 (양산 대비)
+
+로봇 1대 = 시리얼 1개 = 키 1개. 키를 여러 로봇이 공유하지 않습니다. 앱은 로봇 번호를 고정하지 않고
+**로그인한 보호자 계정에 등록된 로봇**(`robots.owner_id`)을 찾아 연결합니다. 등록된 로봇이 없으면 가상 셰르피 시연.
+
+```bash
+# 노트북 (sherpy 루트, .env.local 의 DATABASE_URL 사용)
+node scripts/robot-key.mjs                         # 목록
+node scripts/robot-key.mjs register qa8225 "셰르피 1호" # 새 로봇 → robot/provision/<시리얼>.env
+node scripts/robot-key.mjs rotate 1                # 분실·유출 시 재발급 (이전 키 즉시 무효)
+
+# 키 파일을 해당 로봇으로 복사
+scp robot/provision/<시리얼>.env pi@<파이IP>:~/sherpy/robot/.env
+```
+
+`robot/provision/` 은 `.gitignore` 대상입니다. 페어링 코드(앱에서 보호자가 직접 로봇 등록)는 추후 과제.
+
+### 부품 없이 웹 연동 점검
+
+```bash
+python3 connect_test.py   # 테스트 값 1 Hz 업링크 + 앱 명령 수신·ack (모터·센서 사용 안 함)
+```
+
 ### 모듈 단독 점검
 
 ```bash

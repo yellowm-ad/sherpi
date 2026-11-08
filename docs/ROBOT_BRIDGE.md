@@ -379,6 +379,36 @@ cd ~/sherpy/robot && source .venv/bin/activate && python3 stream.py
 
 ## 6. 서비스 등록 (자동 시작)
 
+### 지금 쓰는 것 — 에이전트 (2026-11-09, 웹 버튼으로 관리)
+
+```bash
+cd ~/sherpy && git pull
+bash ~/sherpy/robot/install_agent.sh      # 한 번만. 이후로는 전원만 켜면 웹에 연결
+journalctl -u sherpy-agent -f             # 로그
+```
+
+`robot/agent.py` 가 부팅 때 저절로 실행돼 웹 **로봇 → 로봇 관리** 화면의 버튼을 처리한다.
+
+| 버튼 | 명령 | 로봇이 하는 일 |
+|---|---|---|
+| 카메라 켜기 / 끄기 | `CAMERA_ON` / `CAMERA_OFF` | `bridge/streamer.py` — MediaMTX + 임시 터널, 켤 때마다 새 시청 비밀번호 |
+| 지금 점검 | `SYS_CHECK` | `bridge/system.py` — 와이파이·신호·서버 응답·저전압·온도·PCA9685·AS5600·카메라 |
+| 다시 시작 / 안전하게 끄기 | `REBOOT` / `POWER_OFF` | `confirm: true` 일 때만, 주행 중이면 거부, 3초 뒤 `sudo -n systemctl reboot·poweroff` |
+
+보안 원칙
+- 파이는 들어오는 연결을 받지 않는다 — 파이가 서버로 나가서 명령을 가져온다(포트 개방·포트포워딩 없음).
+- 명령은 로봇 주인 세션만 넣을 수 있고(서버), 로봇은 자기 키로만 가져간다. 키 파일 `robot/.env` 는 600 권한.
+- 웹에서 온 값을 셸 명령으로 실행하지 않는다. 정해진 명령 이름만 처리하고 나머지는 무시.
+- sudo 는 `systemctl reboot`·`systemctl poweroff` 두 개만 비밀번호 없이 허용 (`/etc/sudoers.d/sherpy-agent`, visudo 검사 통과 시에만 설치).
+- 영상은 시청 비밀번호(Basic 인증)가 있어야 열린다. 비밀번호는 서버를 거쳐 로봇 주인에게만 전달.
+- 로봇이 꺼져 있던 동안 쌓인 명령은 15초 지나면 버린다(ESTOP 제외) — 다시 켰을 때 예전 버튼이 뒤늦게 실행되지 않게.
+- 명령은 로봇당 1분 30개까지(ESTOP 제외).
+
+⚠️ 에이전트가 도는 동안 `stream.py`·`connect_test.py` 를 따로 켜지 말 것 (카메라·명령 폴링이 겹침).
+모터 제어 프로그램이 생기면 에이전트에 합친다 (명령 폴링은 한 프로세스만).
+
+### 나중 — 주행 프로그램 (예정)
+
 ```ini
 # /etc/systemd/system/sherpy-bridge.service
 [Unit]

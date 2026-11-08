@@ -26,6 +26,7 @@ class CommandDownlink:
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self.last_ok = time.monotonic()
+        self.last_rtt_ms: float | None = None   # 서버 응답 시간 (연결 품질 표시용)
 
     def start(self, on_command, on_watchdog) -> None:
         self._on_command = on_command
@@ -46,6 +47,7 @@ class CommandDownlink:
                 res = requests.get(self.pending_url, headers=self.headers, timeout=C.HTTP_TIMEOUT)
                 if res.ok:
                     self.last_ok = time.monotonic()
+                    self.last_rtt_ms = (self.last_ok - t0) * 1000
                     for cmd in res.json().get("commands", []):
                         self._handle(cmd)
             except Exception as e:

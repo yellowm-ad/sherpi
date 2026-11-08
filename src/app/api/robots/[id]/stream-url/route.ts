@@ -12,6 +12,8 @@ import { verifyRobotKey } from "@/lib/robot/auth";
  */
 const Body = z.object({
   url: z.string().url().max(300).refine((u) => u.startsWith("https://"), "https 주소만").nullable(),
+  /** 시청 비밀번호 (robot/bridge/streamer.py 가 켤 때마다 새로 만듦). 예전 stream.py 는 안 보냄 */
+  token: z.string().regex(/^[A-Za-z0-9_-]{16,64}$/).nullable().optional(),
 });
 
 export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -25,6 +27,7 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string 
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "validation failed", detail: parsed.error.format() }, { status: 422 });
 
-  await db.update(robots).set({ streamUrl: parsed.data.url }).where(eq(robots.id, robotId));
-  return NextResponse.json({ ok: true, streamUrl: parsed.data.url });
+  const { url, token } = parsed.data;
+  await db.update(robots).set({ streamUrl: url, streamToken: url ? token ?? null : null }).where(eq(robots.id, robotId));
+  return NextResponse.json({ ok: true, streamUrl: url });
 }

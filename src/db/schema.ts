@@ -46,6 +46,9 @@ export const robots = sherpy.table("robots", {
   pairingCode: varchar("pairing_code", { length: 8 }),
   fwVersion: varchar("fw_version", { length: 20 }),
   streamUrl: text("stream_url"),                   // 영상 WHEP 베이스 주소 (로봇이 켤 때 직접 올림)
+  streamToken: varchar("stream_token", { length: 64 }), // 영상 시청 비밀번호 (켤 때마다 새로, 주인에게만 전달)
+  health: jsonb("health").$type<Record<string, unknown>>(),  // 로봇 상태 보고 (robot/agent.py)
+  healthAt: timestamp("health_at", { withTimezone: true }),
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });

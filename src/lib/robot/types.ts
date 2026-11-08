@@ -46,7 +46,41 @@ export const COMMAND_TYPES = [
   "RESUME",
   "SET_ROUTE",
   "SET_SPEED_LIMIT",
+  // 로봇 관리 (robot/agent.py) — 웹 버튼으로 터미널 작업 대신
+  "CAMERA_ON",
+  "CAMERA_OFF",
+  "SYS_CHECK",
+  "REBOOT",
+  "POWER_OFF",
 ] as const;
+
+/** 끄기·재시작은 payload.confirm === true 일 때만 큐에 넣는다 (실수 방지 — 로봇도 한 번 더 확인) */
+export const CONFIRM_COMMANDS = ["REBOOT", "POWER_OFF"] as const;
+
+/**
+ * 로봇 상태 보고 (robot/bridge/system.py → PUT /api/robots/:id/health, 10초마다 + 점검 버튼)
+ * 로봇이 보내는 값이므로 모양·길이를 엄격히 제한해서 저장한다.
+ */
+const nb = z.boolean().nullable().optional();
+export const HealthSchema = z.object({
+  wifi: z.object({ ssid: z.string().max(64).nullable(), signal: z.number().int().min(0).max(100).nullable() }),
+  ip: z.string().ip({ version: "v4" }).nullable(),
+  serverMs: z.number().min(0).max(60_000).nullable(),
+  power: z.object({ undervoltNow: nb, undervoltSinceBoot: nb, throttled: nb }),
+  cpuTemp: z.number().min(-40).max(150).nullable(),
+  uptime: z.number().int().min(0).nullable(),
+  stream: z.boolean(),
+  streamError: z.string().max(200).nullable().optional(),
+  gpsPort: z.boolean(),
+  agentAt: z.number().int(),
+  mode: z.enum(["idle", "teach", "follow", "estop"]),
+  busy: z.enum(["camera_on", "camera_off", "check"]).nullable(),
+  devices: z.object({ motorDriver: nb, encoder: nb, camera: nb }).optional(),
+  checkedAt: z.number().int().optional(),
+  shuttingDown: z.enum(["reboot", "poweroff"]).optional(),
+  rejected: z.enum(["REBOOT", "POWER_OFF"]).optional(),
+}).strict();
+export type RobotHealth = z.infer<typeof HealthSchema>;
 
 export const CommandSchema = z.object({
   type: z.enum(COMMAND_TYPES),
@@ -88,4 +122,5 @@ export const FAULT_LABEL: Record<string, string> = {
   F7: "리드줄 걸림 의심 (줄 길이 ≠ 실제 거리)",
   F8: "강아지 추적 실패 (카메라 0.5초 이상 미검출)",
   TEST_MODE: "테스트 모드 — 센서 없이 가짜 값 전송 중",
+  NO_SENSORS: "센서 미연결 — 연결·카메라만 확인하는 단계",
 };

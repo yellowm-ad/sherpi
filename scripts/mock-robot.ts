@@ -70,6 +70,7 @@ async function pollCommands() {
       if (c.type === "START_FOLLOW") { mode = "follow"; kfIndex = 0; }
       if (c.type === "PAUSE") { mode = "idle"; }
       if (c.type === "RESUME") { mode = "follow"; }
+      // 로봇 관리 명령 (CAMERA_ON·CAMERA_OFF·SYS_CHECK·REBOOT·POWER_OFF) — 모의 로봇은 ack 만 한다
 
       await fetch(`${SERVER}/api/robots/${ROBOT_ID}/commands/${c.id}/ack`, {
         method: "POST",

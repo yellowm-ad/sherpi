@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, hasDb, noDb } from "@/db";
 import { robotCommands } from "@/db/schema";
-import { and, eq, asc, lt } from "drizzle-orm";
+import { and, eq, asc, lt, ne } from "drizzle-orm";
 import { verifyRobotKey } from "@/lib/robot/auth";
 
 /**
@@ -18,6 +18,17 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
 
   const robot = await verifyRobotKey(robotId, req.headers.get("authorization"));
   if (!robot) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  // 로봇이 꺼져 있던 동안 쌓인 명령은 버린다 — 다시 켜졌을 때 예전 버튼이 뒤늦게 실행되지 않게 (ESTOP 은 예외)
+  await db
+    .update(robotCommands)
+    .set({ status: "expired" })
+    .where(and(
+      eq(robotCommands.robotId, robotId),
+      eq(robotCommands.status, "pending"),
+      ne(robotCommands.type, "ESTOP"),
+      lt(robotCommands.issuedAt, new Date(Date.now() - 15_000)),
+    ));
 
   // 10초 넘게 응답 없는 명령은 만료 처리
   const tenSecAgo = new Date(Date.now() - 10_000);

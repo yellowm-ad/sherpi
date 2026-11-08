@@ -22,6 +22,12 @@ await sql`alter table sherpy.robot_telemetry
             add column if not exists dog_track varchar(6),
             add column if not exists tension_filt_n double precision`;
 
+// 2026-11-09 로봇 관리 화면 (robot/agent.py) — 상태 보고 + 영상 시청 비밀번호
+await sql`alter table sherpy.robots
+            add column if not exists stream_token varchar(64),
+            add column if not exists health jsonb,
+            add column if not exists health_at timestamptz`;
+
 const rooms = [
   ["덕진공원 산책 메이트", "오늘 덕진공원 같이 걸을 분, 코스·시간 공유", "🌳", 1],
   ["셰르피 사용팁", "티칭·자동주행·장력 경고 노하우", "🤖", 2],

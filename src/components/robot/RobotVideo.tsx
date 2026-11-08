@@ -9,8 +9,10 @@ import { VideoOff, RotateCw } from "lucide-react";
  * MediaMTX 의 WHEP 엔드포인트(<base>/<path>/whep)에 SDP offer 를 POST 하고
  * answer 를 받아 <video> 에 붙인다. 영상은 서버(Vercel)를 거치지 않는다.
  * 백그라운드로 가면 스트림을 끊어 데이터·배터리를 아낀다.
+ * src 가 "<주소>#t=<비밀번호>" 면 시청 비밀번호를 Basic 인증으로 붙인다 (robot/bridge/streamer.py 가 켤 때마다 새로 만듦).
  */
-export default function RobotVideo({ base, path = "sherpy" }: { base: string; path?: string }) {
+export default function RobotVideo({ base: src, path = "sherpy" }: { base: string; path?: string }) {
+  const [base, token] = src.split("#t=");
   const videoRef = useRef<HTMLVideoElement>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const [status, setStatus] = useState<"connecting" | "playing" | "failed">("connecting");
@@ -35,7 +37,7 @@ export default function RobotVideo({ base, path = "sherpy" }: { base: string; pa
       await pc.setLocalDescription(offer);
       const res = await fetch(`${base.replace(/\/$/, "")}/${path}/whep`, {
         method: "POST",
-        headers: { "Content-Type": "application/sdp" },
+        headers: { "Content-Type": "application/sdp", ...(token ? { Authorization: `Basic ${btoa(`viewer:${token}`)}` } : {}) },
         body: offer.sdp,
       });
       if (!res.ok) throw new Error(`WHEP ${res.status}`);
@@ -43,7 +45,7 @@ export default function RobotVideo({ base, path = "sherpy" }: { base: string; pa
     } catch {
       setStatus("failed");
     }
-  }, [base, path]);
+  }, [base, path, token]);
 
   useEffect(() => {
     start();

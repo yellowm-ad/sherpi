@@ -42,7 +42,9 @@ export type ConnState = "connecting" | "online" | "stale" | "offline";
  * 게스트·DB 없음·등록된 로봇 없음이면 null → 브라우저 안의 가상 셰르피(demo-robot)로 시연.
  * 한 번만 묻고 결과를 모듈에 보관한다.
  */
-type MyRobot = { id: number; streamUrl: string | null };
+type MyRobot = { id: number; streamUrl: string | null; streamToken?: string | null };
+/** 영상 주소 + 시청 비밀번호를 한 문자열로 (#t=…, 프래그먼트라 네트워크로 나가지 않음) — RobotVideo 가 나눠 쓴다 */
+const streamOf = (r: MyRobot | null | undefined) => (r?.streamUrl ? r.streamUrl + (r.streamToken ? `#t=${r.streamToken}` : "") : null);
 const fetchMyRobot = (): Promise<MyRobot | null> =>
   fetch("/api/me", { cache: "no-store" })
     .then((r) => r.json())
@@ -95,7 +97,7 @@ export function useRobotStream() {
       const isDemo = robotId == null;
       setDemo(isDemo);
       setRobotId(robotId);
-      setStreamUrl(robot?.streamUrl ?? null);
+      setStreamUrl(streamOf(robot));
 
       if (isDemo) {
         const bot = demoRobot();
@@ -139,7 +141,7 @@ export function useRobotStream() {
       }, 2000);
 
       const streamPoll = setInterval(() => {
-        fetchMyRobot().then((r) => alive && setStreamUrl(r?.streamUrl ?? null));
+        fetchMyRobot().then((r) => alive && setStreamUrl(streamOf(r)));
       }, 15000);
 
       cleanup = () => { es.close(); clearInterval(poll); clearInterval(streamPoll); };

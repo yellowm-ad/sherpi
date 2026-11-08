@@ -36,6 +36,12 @@
 | GET | `/api/robots/[id]/commands` | 앱 | 세션 |
 | GET | `/api/robots/[id]/commands/pending` | **로봇** | `Bearer <robot_api_key>` |
 | POST | `/api/robots/[id]/commands/[cid]/ack` | **로봇** | `Bearer <robot_api_key>` |
+| PUT | `/api/robots/[id]/health` | **로봇** (`robot/agent.py`, 10초마다) | `Bearer <robot_api_key>` |
+| GET | `/api/robots/[id]/health` | 앱 (로봇 관리 화면) | 세션 · 로봇 주인 |
+| PUT | `/api/robots/[id]/stream-url` | **로봇** — `{ url, token }` | `Bearer <robot_api_key>` |
+
+로봇 관리 명령: `CAMERA_ON` · `CAMERA_OFF` · `SYS_CHECK` · `REBOOT` · `POWER_OFF` (끄기·재시작은 `payload.confirm === true` 필수, 아니면 422).
+명령 POST 는 로봇당 1분 30개 제한(429, ESTOP 제외). 15초 넘게 대기 중인 명령은 로봇이 가져가기 전에 만료(ESTOP 제외).
 
 ### POST /api/robots/:id/telemetry
 

@@ -42,7 +42,7 @@ class SafetySupervisor:
             return "로드셀 신호 단절"
         if i["camAge"] > c.camLostHold:
             return "카메라 추적 실패"
-        if i["encFrozen"] >= c.encFrames or i["encResidual"] > c.encTol:
+        if i["encFrozen"] >= c.encFrames or i["encResidual"] > c.encTol or i.get("encCam"):
             return "엔코더 고착"
         g = i.get("geom")
         if g:

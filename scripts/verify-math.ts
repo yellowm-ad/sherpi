@@ -12,8 +12,8 @@ import { reelLength, reelPhi, reelRadius, reelConstRadiusError, ReelOdometer, re
 import { bearingFromPixel, project, horizontalFov, type CamModel } from "../src/lib/sherpy/core/camera";
 import { DogTracker } from "../src/lib/sherpy/core/tracker";
 import { toLatLng, toLocal, dogLatLng } from "../src/lib/sherpy/geo";
-import { runFusion, makeRng, DEFAULT_FUSION } from "../src/lib/sherpy/simulate";
-import { DEFAULT_HW, DEFAULT_PARAMS, type EnvKey, type ScenarioKey } from "../src/lib/sherpy/params";
+import { runFusion, makeRng, DEFAULT_FUSION, type FusionOpts } from "../src/lib/sherpy/simulate";
+import { DEFAULT_HW, DEFAULT_PARAMS, K, type EnvKey, type ScenarioKey } from "../src/lib/sherpy/params";
 
 let fails = 0;
 const check = (name: string, ok: boolean, detail = "") => {
@@ -128,15 +128,69 @@ for (const env of ENVS) for (const scn of SCN) {
   check("몬테카를로 정상 산책 오경보", fa === 0, `${n}회 중 L3 ${fa}회`);
 }
 
+console.log("\nC2. 7.4 추가 — 엔코더 교차 확인 · EKF 앞먹임");
+{
+  const full: FusionOpts = { ...DEFAULT_FUSION, reelMode: "flexi", predict: true, l2Mode: "directional", encCross: true, ffMode: "ekf" };
+  // 축 미끄러짐: 값은 ±LSB 떨려서 동일값 연속으로는 못 잡는다 (Flexi 는 지령 잔차도 없음).
+  // 거리가 그대로면(정상 추종) 원리상 구분할 수 없고 위험도 없다 → 급당김(12~22초) 중 12초에 주입해 거리가 변할 때 잡는지 본다.
+  const SLIP_T = 12;
+  for (const env of ENVS) {
+    const off = runFusion(DEFAULT_PARAMS, env, "pull", { ...full, encCross: false, encFault: "slip", encFaultAt: SLIP_T });
+    const on = runFusion(DEFAULT_PARAMS, env, "pull", { ...full, encFault: "slip", encFaultAt: SLIP_T });
+    const l3off = off.events.find((e) => e.level === 3), l3on = on.events.find((e) => e.level === 3);
+    check(`${env}/급당김 중 엔코더 미끄러짐 (Flexi)`, !!l3on && l3on.reason === "엔코더 고착",
+      `교차 확인 끔: ${l3off ? `${l3off.t.toFixed(2)}s ${l3off.reason}` : "못 잡음"} → 켬: ${l3on ? `${l3on.t.toFixed(2)}s (주입 ${(l3on.t - SLIP_T).toFixed(2)}s 뒤) ${l3on.reason}` : "못 잡음"}`);
+  }
+  {
+    // 정상 추종 중 미끄러짐은 잡히지 않아도 정상 (오경보·위험 없음) — 결과만 기록
+    const r = runFusion(DEFAULT_PARAMS, "park", "encoder", { ...full, encFault: "slip" });
+    const l3 = r.events.find((e) => e.level === 3);
+    console.log(`  · 참고 park/encoder(정상 추종 중 미끄러짐): ${l3 ? `${l3.t.toFixed(2)}s ${l3.reason}` : "L3 없음 — 거리가 안 변해 구분 불가(위험도 없음)"}`);
+  }
+  let fa = 0, n = 0;
+  for (const env of ENVS) for (let seed = 1; seed <= 25; seed++) {
+    const r = runFusion(DEFAULT_PARAMS, env, "normal", { ...full, seed });
+    n++; if (r.stopTime !== null) fa++;
+  }
+  check("몬테카를로 오경보 (Flexi+예측+방향+교차+EKF 앞먹임)", fa === 0, `${n}회 중 L3 ${fa}회`);
+  // 강아지가 설정(0.48)과 다른 속도로 걸을 때: 정상상태 거리 오차 e_ss = (v_dog − v_ff)/K_p
+  for (const vd of [0.35, 0.7]) {
+    const p = { ...DEFAULT_PARAMS, dogSpeed: vd };
+    const err = (o: FusionOpts) => {
+      const fr = runFusion(p, "park", "normal", { ...o, ffDogSpeed: DEFAULT_PARAMS.dogSpeed }).frames.filter((f) => f.t >= 10);
+      return fr.reduce((a, f) => a + f.dist - p.followDist, 0) / fr.length;
+    };
+    const eFix = err(DEFAULT_FUSION), eEkf = err({ ...DEFAULT_FUSION, ffMode: "ekf" });
+    const theory = (vd - DEFAULT_PARAMS.dogSpeed) / K.FOLLOW_GAIN;
+    check(`앞먹임 정상상태 오차 (강아지 ${vd} m/s)`, Math.abs(eEkf) < Math.abs(eFix) / 2,
+      `설정값 ${(eFix * 100).toFixed(1)} cm (이론 ${(theory * 100).toFixed(1)}) → EKF ${(eEkf * 100).toFixed(1)} cm`);
+  }
+}
+
 console.log("\nD. 골든 로그 (파이썬 대조용)");
 mkdirSync("scripts/fixtures", { recursive: true });
-for (const [env, scn, reelMode, predict] of [["park", "normal", "tension", false], ["dense", "pull", "tension", false], ["walk", "encoder", "position", false], ["park", "camera", "tension", false], ["park", "pull", "flexi", true], ["walk", "normal", "flexi", true]] as const) {
-  const r = runFusion(DEFAULT_PARAMS, env, scn, { ...DEFAULT_FUSION, reelMode, predict, record: true });
+type G = [EnvKey, ScenarioKey, FusionOpts, string];
+const goldens: G[] = [
+  ["park", "normal", { ...DEFAULT_FUSION, reelMode: "tension" }, "tension"],
+  ["dense", "pull", { ...DEFAULT_FUSION, reelMode: "tension" }, "tension"],
+  ["walk", "encoder", { ...DEFAULT_FUSION, reelMode: "position" }, "position"],
+  ["park", "camera", { ...DEFAULT_FUSION, reelMode: "tension" }, "tension"],
+  ["park", "pull", { ...DEFAULT_FUSION, reelMode: "flexi", predict: true }, "flexi-pred"],
+  ["walk", "normal", { ...DEFAULT_FUSION, reelMode: "flexi", predict: true }, "flexi-pred"],
+  // 7.4 전체 구성: 방향 L2 · 교차 확인 · EKF 앞먹임 (+ 축 미끄러짐 고장, 설정과 다른 강아지 속도)
+  ["park", "pull", { ...DEFAULT_FUSION, reelMode: "flexi", predict: true, l2Mode: "directional", encCross: true, ffMode: "ekf" }, "flexi-74"],
+  ["walk", "encoder", { ...DEFAULT_FUSION, reelMode: "flexi", predict: true, l2Mode: "directional", encCross: true, ffMode: "ekf", encFault: "slip" }, "flexi-74-slip"],
+  ["dense", "normal", { ...DEFAULT_FUSION, reelMode: "tension", l2Mode: "directional", ffMode: "ekf", ffDogSpeed: 0.6 }, "tension-74-ff"],
+];
+for (const [env, scn, o, tag] of goldens) {
+  const r = runFusion(DEFAULT_PARAMS, env, scn, { ...o, record: true });
+  const pCore = o.ffDogSpeed === undefined ? DEFAULT_PARAMS : { ...DEFAULT_PARAMS, dogSpeed: o.ffDogSpeed };
   const g = {
-    env, scenario: scn, reelMode, predict, p: DEFAULT_PARAMS, hw: DEFAULT_HW, fit: { a: r.calib!.a, b: r.calib!.b }, L0: r.log!.L0,
+    env, scenario: scn, reelMode: o.reelMode, predict: !!o.predict, l2Mode: o.l2Mode ?? "slow", encCross: !!o.encCross, ffMode: o.ffMode ?? "fixed",
+    p: pCore, hw: DEFAULT_HW, fit: { a: r.calib!.a, b: r.calib!.b }, L0: r.log!.L0,
     packets: r.log!.packets, outputs: r.log!.outputs.map((o) => ({ ...o, est: { ...o.est, ellipse: undefined } })),
   };
-  const file = `scripts/fixtures/golden-${env}-${scn}-${reelMode}${predict ? "-pred" : ""}.json`;
+  const file = `scripts/fixtures/golden-${env}-${scn}-${tag}.json`;
   writeFileSync(file, JSON.stringify(g));
   console.log(`  · ${file} (${g.packets.length} 프레임)`);
 }

@@ -30,6 +30,7 @@ const cases: [string, (p: SimParams, e: EnvKey, s: ScenarioKey) => SimResult][] 
   ["Flexi", (p, e, s) => runFusion(p, e, s, { ...DEFAULT_FUSION, reelMode: "flexi" } as FusionOpts)],
   ["Flexi+예측", (p, e, s) => runFusion(p, e, s, { ...DEFAULT_FUSION, reelMode: "flexi", predict: true } as FusionOpts)],
   ["Flexi+예측+방향L2", (p, e, s) => runFusion(p, e, s, { ...DEFAULT_FUSION, reelMode: "flexi", predict: true, l2Mode: "directional" } as FusionOpts)],
+  ["Flexi 7.4 전체", (p, e, s) => runFusion(p, e, s, { ...DEFAULT_FUSION, reelMode: "flexi", predict: true, l2Mode: "directional", encCross: true, ffMode: "ekf" } as FusionOpts)],
 ];
 
 for (const [env, scn] of [["park", "normal"], ["park", "pull"], ["walk", "pull"], ["park", "opposite"]] as [EnvKey, ScenarioKey][]) {

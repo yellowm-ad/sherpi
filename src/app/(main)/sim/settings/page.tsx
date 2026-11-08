@@ -45,6 +45,12 @@ export default function SimSettings() {
             <div className="mt-3"><Chips label="예측 경고 (dT/dt · dL/dt)" value={s.fusion.predict ? "on" : "off"}
                    options={{ off: "끔 (7.3: 지금 장력만 봄)", on: "켬 (정지값·줄 끝 도달 1초 전 L2)" }}
                    onPick={(v) => set({ fusion: { ...s.fusion, predict: v === "on" } })} /></div>
+            <div className="mt-3"><Chips label="추종 앞먹임 (7.4)" value={s.fusion.ffMode}
+                   options={{ fixed: "설정값 (7.3: 강아지 0.48 m/s 가정)", ekf: "EKF 추정 강아지 속도" }}
+                   onPick={(v) => set({ fusion: { ...s.fusion, ffMode: v as "fixed" | "ekf" } })} /></div>
+            <div className="mt-3"><Chips label="엔코더 교차 확인 (7.4)" value={s.fusion.encCross ? "on" : "off"}
+                   options={{ off: "끔 (동일값 연속 · 지령 잔차만)", on: "켬 (카메라 거리는 변하는데 줄 길이 그대로면 고착)" }}
+                   onPick={(v) => set({ fusion: { ...s.fusion, encCross: v === "on" } })} /></div>
             <label className="mt-3 flex items-center justify-between text-xs text-body">
               잡음 시드 (같은 시드 = 같은 결과)
               <input type="number" min={1} max={9999} value={s.fusion.seed} onChange={(e) => set({ fusion: { ...s.fusion, seed: Math.max(1, Number(e.target.value) || 1) } })}

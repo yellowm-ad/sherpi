@@ -53,6 +53,19 @@ export interface CoreConfig {
   l2Mode?: "slow" | "directional";
   /** 예측 경고 — dT̂/dt·dL/dt 로 정지값·줄 끝 도달 시간을 계산해 L2 를 미리 켠다 (safety.ts) */
   predict?: boolean;
+  /**
+   * 엔코더 교차 확인 (7.4 #9) — Flexi 처럼 릴 명령이 없으면 "지령 대비 잔차"를 못 쓴다.
+   * 카메라 거리(τ 0.3 s 필터)는 1초 동안 크게 변했는데 줄 길이 L 은 그대로면 고착:
+   *   |Δd̄_cam| > max(0.2 m, 0.1·d̄_cam)  ∧  |ΔL| < 2 mm  가 0.4 s 지속 → L3
+   * 동일값 연속(AS5600 HYST=0 떨림)이 주 판정이고, 이것은 축이 미끄러져 값은 떨리는데 길이가 안 변하는 고장용 보조.
+   */
+  encCross?: boolean;
+  /**
+   * 추종 속도 앞먹임 (7.4 #13).  v = v_ff + K_p(d − d_ref)
+   *   fixed = 7.3 그대로 설정값 dogSpeed → 강아지가 다른 속도면 정상상태 오차 e_ss = (v_dog − v_ff)/K_p
+   *   ekf   = EKF 가 추정한 강아지 속도의 시선 성분 v̂_dog,r (추적 실패 시 0)
+   */
+  ffMode?: "fixed" | "ekf";
 }
 
 export interface CoreOutput {
@@ -76,6 +89,8 @@ export interface CoreOutput {
   nis: { bearing: number | null; rope: number | null; cam: number | null };
   /** 변화율 — 장력 기울기 dT̂/dt [N/s], 인출 속도 dL/dt [m/s] (τ 0.1 s 미분 필터) */
   rate: { Tdot: number; Ldot: number };
+  /** 앞먹임 속도 v_ff [m/s] (fixed 면 설정값) */
+  vff: number;
 }
 
 export class SherpyCore {
@@ -96,6 +111,9 @@ export class SherpyCore {
   private prevThat = 0;
   Tdot = 0;
   Ldot = 0;
+  private dCamF: number | null = null;
+  private crossHist: { dc: number | null; L: number }[] = [];
+  private crossTime = 0;
 
   constructor(public cfg: CoreConfig) {
     const { hw, p } = cfg;
@@ -202,11 +220,25 @@ export class SherpyCore {
     const sigma = this.tracker.sigmaPos;
     const track = this.camAge === 0 ? "ok" : this.camAge <= hw.camLostHold ? "coast" : "lost";
 
+    // 엔코더 교차 확인: 카메라 거리는 변하는데 L 이 그대로 (1초 창의 양 끝 비교)
+    let encCam = false;
+    if (this.cfg.encCross) {
+      if (dCam !== null) this.dCamF = this.dCamF === null ? dCam : this.dCamF + lowpassAlpha(dt, 0.3) * (dCam - this.dCamF);
+      this.crossHist.push({ dc: this.camAge <= 0.2 ? this.dCamF : null, L });
+      if (this.crossHist.length > K.ENCODER_STUCK_FRAMES + 1) this.crossHist.shift();
+      const a = this.crossHist[0], b = this.crossHist[this.crossHist.length - 1];
+      const moved = this.crossHist.length > K.ENCODER_STUCK_FRAMES && a.dc !== null && b.dc !== null
+        && Math.abs(b.dc - a.dc) > Math.max(0.2, 0.1 * b.dc) && Math.abs(b.L - a.L) < 0.002
+        && L > K.REEL_MIN + 0.02 && L < p.reelMax - 0.02;
+      this.crossTime = moved ? this.crossTime + dt : 0;
+      encCam = this.crossTime >= 0.4;
+    }
+
     // ── ③ 안전 판단 ──
     const so = this.safety.step({
       t: s.t, Thead: this.That, loadAge: this.loadAge, encFrozen: this.odo.sameCount, encResidual,
       camAge: this.camAge, sigmaPos: sigma, snag, reel: L, geom: s.geom ?? null,
-      Tdot: this.Tdot, Ldot: this.Ldot,
+      Tdot: this.Tdot, Ldot: this.Ldot, encCam,
     });
 
     // ── ④ 명령 ──
@@ -217,7 +249,8 @@ export class SherpyCore {
     const steerLim = (p.steerMax * Math.PI) / 180;
     const steer = clamp(K.STEER_GAIN * wrapPi(pu - this.pose.psi), -steerLim, steerLim);
 
-    let v = clamp(p.dogSpeed + K.FOLLOW_GAIN * (rel.rho - p.followDist), 0, p.robotMax);
+    const vff = this.cfg.ffMode === "ekf" ? (track === "lost" ? 0 : clamp(rel.vr, 0, p.robotMax)) : p.dogSpeed;
+    let v = clamp(vff + K.FOLLOW_GAIN * (rel.rho - p.followDist), 0, p.robotMax);
     const pulling = this.cfg.l2Mode === "directional" && so.level === 2 && vRel > 0.05;
     if (so.speedCap !== null && !(pulling && !so.hold)) v = Math.min(v, so.speedCap);
 
@@ -244,7 +277,7 @@ export class SherpyCore {
       est: { xr: rel.xr, yr: rel.yr, theta: rel.theta, d: rel.rho, sigma, vr: vRel, ellipse: this.relEllipse() },
       pose: { ...this.pose }, track, snagResidual: this.snagF,
       level: so.level, hold: so.hold, reason: so.reason, notes: so.notes,
-      cmd: { v: so.hold ? 0 : v, steer, reelRate }, nis, rate: { Tdot: this.Tdot, Ldot: this.Ldot },
+      cmd: { v: so.hold ? 0 : v, steer, reelRate }, nis, rate: { Tdot: this.Tdot, Ldot: this.Ldot }, vff,
     };
   }
 

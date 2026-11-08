@@ -28,6 +28,8 @@ export interface SafetyInput {
   /** 예측 경고용 변화율 (predict 켤 때만) — 필터 장력의 기울기 dT̂/dt [N/s], 인출 속도 dL/dt [m/s] */
   Tdot?: number;
   Ldot?: number;
+  /** 엔코더 교차 확인 — 카메라 거리는 변하는데 L 이 그대로 (encCross 켤 때만) */
+  encCam?: boolean;
 }
 
 export interface SafetyCfg {
@@ -69,7 +71,7 @@ export class SafetySupervisor {
     const c = this.cfg;
     if (i.loadAge > c.lcTimeout) return "로드셀 신호 단절";
     if (i.camAge > c.camLostHold) return "카메라 추적 실패";
-    if (i.encFrozen >= c.encFrames || i.encResidual > c.encTol) return "엔코더 고착";
+    if (i.encFrozen >= c.encFrames || i.encResidual > c.encTol || i.encCam) return "엔코더 고착";
     if (i.geom) {
       if (i.geom.body < c.clearance) return "차체 장애물 안전거리 부족";
       if (i.geom.rope < 0) return "리드줄이 장애물에 걸림";

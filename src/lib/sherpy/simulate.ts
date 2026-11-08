@@ -70,6 +70,16 @@ export interface FusionOpts {
   l2Mode?: "slow" | "directional";
   /** 예측 경고 (dT/dt · dL/dt) */
   predict?: boolean;
+  /** 엔코더 교차 확인 (카메라 거리 변화 vs L) */
+  encCross?: boolean;
+  /** 추종 앞먹임: 설정값(7.3) / EKF 추정 강아지 속도 */
+  ffMode?: "fixed" | "ekf";
+  /** 로봇이 알고 있는 강아지 속도 설정값 — 실제(p.dogSpeed)와 다르게 줘서 정상상태 오차를 본다 */
+  ffDogSpeed?: number;
+  /** 엔코더 고장 종류: hold = 값이 멈춤(7.3) / slip = 축이 미끄러져 값은 ±LSB 떨리는데 길이가 안 변함 */
+  encFault?: "hold" | "slip";
+  /** 엔코더 고장 주입 시각 [s] — 기본은 encoder 시나리오의 14초. 다른 시나리오(급당김 등)와 겹쳐 볼 때 */
+  encFaultAt?: number;
 }
 export const DEFAULT_FUSION: FusionOpts = { reelMode: "tension", smoothAccel: true, seed: 1, hw: DEFAULT_HW };
 
@@ -117,7 +127,10 @@ export function runFusion(p: SimParams, env: EnvKey, scenario: ScenarioKey, o: F
   const log = o.record ? { L0, packets: [] as SensorPacket[], outputs: [] as CoreOutput[] } : undefined;
   const geom: ReelGeom = { r0: hw.reelCore, t: hw.ropeThick, w: hw.drumWidth, Ltot: hw.ropeTotal };
   const camTrue: CamModel = { fx: hw.camFx, fy: hw.camFy, cx: hw.camCx, k1: hw.camK1, yaw: hw.camYaw, W: hw.camW };
-  const core = new SherpyCore({ p, hw, fit: calib.fit, reelMode: o.reelMode, L0, l2Mode: o.l2Mode ?? "slow", predict: !!o.predict });
+  const core = new SherpyCore({
+    p: o.ffDogSpeed === undefined ? p : { ...p, dogSpeed: o.ffDogSpeed }, hw, fit: calib.fit, reelMode: o.reelMode, L0,
+    l2Mode: o.l2Mode ?? "slow", predict: !!o.predict, encCross: !!o.encCross, ffMode: o.ffMode ?? "fixed",
+  });
 
   const frames: SimFrame[] = [];
   const events: SafetyEvent[] = [];
@@ -137,8 +150,11 @@ export function runFusion(p: SimParams, env: EnvKey, scenario: ScenarioKey, o: F
     const loadRaw = loadOut ? null : (Tm - hw.lcOffset) / hw.lcGain + rng.gauss() * hw.lcCountNoise;
 
     let encRaw = (reelRawCount(geom, L0, w.reel) + Math.round(rng.gauss() * hw.encNoiseLsb) + 4096) % 4096;
-    if (scenario === "encoder" && t >= K.FAULT_T) encRaw = encHeld ?? encRaw;
-    else encHeld = encRaw;
+    if (t >= (o.encFaultAt ?? (scenario === "encoder" ? K.FAULT_T : Infinity))) {
+      encRaw = o.encFault === "slip"
+        ? ((encHeld ?? encRaw) + Math.round(rng.gauss() * hw.encNoiseLsb) + 4096) % 4096
+        : encHeld ?? encRaw;
+    } else encHeld = encRaw;
 
     // 가림: 시선(로봇→강아지)이 장애물을 지나면 안 보인다
     const occluded = w.obstacles.some((ob) => {

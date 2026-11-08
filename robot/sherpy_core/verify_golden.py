@@ -13,7 +13,7 @@ from .pipeline import SherpyCore, CoreConfig
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 FIELDS = [("Tfast",), ("That",), ("L",), ("est", "d"), ("est", "theta"), ("est", "sigma"),
-          ("cmd", "v"), ("cmd", "steer"), ("cmd", "reelRate"), ("rate", "Tdot"), ("rate", "Ldot")]
+          ("cmd", "v"), ("cmd", "steer"), ("cmd", "reelRate"), ("rate", "Tdot"), ("rate", "Ldot"), ("vff",)]
 
 
 def get(o, path):
@@ -32,7 +32,8 @@ def main():
         with open(f, encoding="utf-8") as fp:
             g = json.load(fp)
         core = SherpyCore(CoreConfig(SimParams(**g["p"]), HwParams(**g["hw"]), g["fit"], g["reelMode"], g["L0"],
-                                    predict=bool(g.get("predict", False))))
+                                    predict=bool(g.get("predict", False)), l2Mode=g.get("l2Mode", "slow"),
+                                    encCross=bool(g.get("encCross", False)), ffMode=g.get("ffMode", "fixed")))
         worst, where, mismatch = 0.0, "", 0
         for pkt, exp in zip(g["packets"], g["outputs"]):
             out = core.step(pkt)

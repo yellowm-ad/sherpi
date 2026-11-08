@@ -32,6 +32,9 @@ class CoreConfig:
     L0: float = 1.6
     Tref: float = 2.0
     predict: bool = False
+    l2Mode: str = "slow"       # slow | directional
+    encCross: bool = False     # 엔코더 교차 확인 (카메라 거리 변화 vs L)
+    ffMode: str = "fixed"      # fixed | ekf — 추종 앞먹임
 
 
 class SherpyCore:
@@ -58,6 +61,9 @@ class SherpyCore:
         self.prev_That = 0.0
         self.Tdot = 0.0
         self.Ldot = 0.0
+        self.dcam_f = None
+        self._cross_hist = []
+        self.cross_time = 0.0
 
     def step(self, s):
         p, hw = self.cfg.p, self.cfg.hw
@@ -142,11 +148,26 @@ class SherpyCore:
         sigma = self.tracker.sigma_pos
         track = "ok" if self.cam_age == 0 else ("coast" if self.cam_age <= hw.camLostHold else "lost")
 
+        # 엔코더 교차 확인: 카메라 거리는 변하는데 L 이 그대로
+        enc_cam = False
+        if self.cfg.encCross:
+            if d_cam is not None:
+                self.dcam_f = d_cam if self.dcam_f is None else self.dcam_f + lowpass_alpha(dt, 0.3) * (d_cam - self.dcam_f)
+            self._cross_hist.append((self.dcam_f if self.cam_age <= 0.2 else None, L))
+            if len(self._cross_hist) > K.ENCODER_STUCK_FRAMES + 1:
+                self._cross_hist.pop(0)
+            a, b = self._cross_hist[0], self._cross_hist[-1]
+            moved = (len(self._cross_hist) > K.ENCODER_STUCK_FRAMES and a[0] is not None and b[0] is not None
+                     and abs(b[0] - a[0]) > max(0.2, 0.1 * b[0]) and abs(b[1] - a[1]) < 0.002
+                     and K.REEL_MIN + 0.02 < L < p.reelMax - 0.02)
+            self.cross_time = self.cross_time + dt if moved else 0.0
+            enc_cam = self.cross_time >= 0.4
+
         # ③ 안전 판단
         so = self.safety.step({
             "t": s["t"], "Thead": self.That, "loadAge": self.load_age, "encFrozen": self.odo.same_count,
             "encResidual": enc_residual, "camAge": self.cam_age, "sigmaPos": sigma, "snag": snag,
-            "reel": L, "geom": s.get("geom"), "Tdot": self.Tdot, "Ldot": self.Ldot,
+            "reel": L, "geom": s.get("geom"), "Tdot": self.Tdot, "Ldot": self.Ldot, "encCam": enc_cam,
         })
 
         # ④ 명령
@@ -157,8 +178,14 @@ class SherpyCore:
             pu = math.atan2(s["avoidX"] - self.pose.x, 1)
         steer_lim = p.steerMax * math.pi / 180
         steer = clamp(K.STEER_GAIN * wrap_pi(pu - self.pose.psi), -steer_lim, steer_lim)
-        v = clamp(p.dogSpeed + K.FOLLOW_GAIN * (rel["rho"] - p.followDist), 0, p.robotMax)
-        if so["speedCap"] is not None:
+        if self.cfg.ffMode == "ekf":
+            vff = 0.0 if track == "lost" else clamp(rel["vr"], 0, p.robotMax)
+        else:
+            vff = p.dogSpeed
+        v = clamp(vff + K.FOLLOW_GAIN * (rel["rho"] - p.followDist), 0, p.robotMax)
+        # 방향 고려 L2: 강아지가 멀어지며 당기는 중(v_r > 0.05)이면 L2 감속을 걸지 않는다 (L3 는 그대로)
+        pulling = self.cfg.l2Mode == "directional" and so["level"] == 2 and v_rel > 0.05
+        if so["speedCap"] is not None and not (pulling and not so["hold"]):
             v = min(v, so["speedCap"])
 
         mode = self.cfg.reelMode
@@ -187,7 +214,7 @@ class SherpyCore:
             "track": track, "snagResidual": self.snagF,
             "level": so["level"], "hold": so["hold"], "reason": so["reason"], "notes": so["notes"],
             "cmd": {"v": 0.0 if so["hold"] else v, "steer": steer, "reelRate": reel_rate},
-            "rate": {"Tdot": self.Tdot, "Ldot": self.Ldot},
+            "rate": {"Tdot": self.Tdot, "Ldot": self.Ldot}, "vff": vff,
         }
 
     def resume(self, clear):

@@ -38,7 +38,7 @@ HEADERS = {"Authorization": f"Bearer {C.API_KEY}"}
 HEALTH_URL = f"{C.SERVER_URL}/api/robots/{C.ROBOT_ID}/health"
 HEALTH_EVERY = 10.0  # 초
 
-state = {"mode": "idle", "watchdog": False, "busy": None, "last_full": {}}
+state = {"mode": "idle", "watchdog": False, "busy": None, "last_full": {}, "shutting": None}
 streamer = Streamer()
 down = CommandDownlink()
 up = TelemetryUplink()
@@ -59,6 +59,8 @@ def push_health(full: bool = False, extra: dict | None = None) -> None:
     h["mode"] = state["mode"]
     h["busy"] = state["busy"]                 # "camera_on" 처럼 진행 중인 작업
     h["streamError"] = streamer.error
+    if state["shutting"]:
+        h["shuttingDown"] = state["shutting"]   # 꺼질 때까지 계속 '꺼지는 중'으로 보이게
     if extra:
         h.update(extra)
     try:
@@ -107,15 +109,29 @@ def camera_off() -> None:
 
 
 def power_action(kind: str) -> None:
-    """kind: reboot | poweroff — 확인 보고를 먼저 보내고 3초 뒤 실행"""
+    """kind: reboot | poweroff — 확인 보고를 먼저 보내고 3초 뒤 실행.
+
+    에이전트는 여기서 스스로 끝내지 않는다. OS 가 꺼지면서 systemd 가 SIGTERM 으로 정리한다.
+    (예전 버그: 명령 처리 스레드(daemon)에서 만든 Timer 는 daemon 을 물려받아,
+     에이전트가 먼저 끝나면 3초가 되기 전에 같이 사라져 poweroff 가 실행되지 않았다.)
+    """
+    if subprocess.run(["sudo", "-n", "-l", "/usr/bin/systemctl", kind], capture_output=True).returncode != 0:
+        log(f"⛔ {kind} 권한 없음 — install_agent.sh 를 다시 실행하세요")
+        return
     log(f"🔌 {kind} 준비 — 송출 종료")
     streamer.stop()
-    push_health(extra={"shuttingDown": kind})
-    stop_evt.set()
+    state["shutting"] = kind
+    push_health()
 
     def go():
-        subprocess.run(["sudo", "-n", "/usr/bin/systemctl", kind], check=False)
-    threading.Timer(3.0, go).start()
+        r = subprocess.run(["sudo", "-n", "/usr/bin/systemctl", kind], capture_output=True, text=True)
+        if r.returncode != 0:
+            state["shutting"] = None
+            log(f"❌ {kind} 실패: {(r.stderr or r.stdout).strip()[:200]}")
+            push_health()
+    t = threading.Timer(3.0, go)
+    t.daemon = False
+    t.start()
 
 
 def on_command(ctype: str, payload: dict) -> None:

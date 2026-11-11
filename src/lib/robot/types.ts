@@ -57,6 +57,9 @@ export const COMMAND_TYPES = [
   "VISION_OFF",
   "VISION_SET",
   "VISION_MARK",
+  // 수동 조종 (robot/bridge/joystick.py) — 폰 ↔ 파이 직접 연결(터널) 켜기·끄기. 조종 신호 자체는 서버를 거치지 않는다
+  "JOY_ON",
+  "JOY_OFF",
 ] as const;
 
 /** 끄기·재시작은 payload.confirm === true 일 때만 큐에 넣는다 (실수 방지 — 로봇도 한 번 더 확인) */
@@ -81,7 +84,16 @@ export const HealthSchema = z.object({
   gpsPort: z.boolean(),
   agentAt: z.number().int(),
   mode: z.enum(["idle", "teach", "follow", "estop"]),
-  busy: z.enum(["camera_on", "camera_off", "check", "vision_on", "vision_off"]).nullable(),
+  busy: z.enum(["camera_on", "camera_off", "check", "vision_on", "vision_off", "joy_on", "joy_off"]).nullable(),
+  // 수동 조종 — 주소·비밀번호는 이 health 와 함께 로봇 주인에게만 내려간다 (GET 은 requireRobotOwner)
+  joy: z.object({
+    url: z.string().regex(/^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/),
+    token: z.string().min(16).max(64),
+  }).nullable().optional(),
+  joyConnected: z.boolean().optional(),
+  joyError: z.string().max(200).nullable().optional(),
+  motorLive: z.boolean().optional(),
+  motorError: z.string().max(200).nullable().optional(),
   devices: z.object({ motorDriver: nb, encoder: nb, camera: nb }).optional(),
   checkedAt: z.number().int().optional(),
   shuttingDown: z.enum(["reboot", "poweroff"]).optional(),

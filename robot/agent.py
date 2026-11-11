@@ -10,7 +10,11 @@
     VISION_SET / VISION_MARK 인식 판단 값 바꾸기 / '놓침·괜히 멈춤·잘함' 표본 저장 (모터는 움직이지 않음)
     SYS_CHECK                연결·전원·부품 전체 점검 후 보고
     REBOOT / POWER_OFF       다시 시작 / 안전하게 끄기 (주행 중이면 거부)
-그 외 ESTOP·PAUSE 등 주행 명령은 상태만 바꾼다 (모터 제어 프로그램은 아직 없음 — 붙으면 여기로 합친다).
+    JOY_ON / JOY_OFF         수동 조종(조이스틱) 연결 켜기·끄기 (bridge/joystick.py — 폰과 터널로 직접 연결)
+    ESTOP                    바퀴 즉시 정지 + 조종 거부 (정지 해제 = RESUME)
+    START_TEACH / STOP_TEACH 티칭 = 수동 조종으로 몰면서 조작 기록 (robot/teach_log/*.jsonl)
+자동주행(START_FOLLOW 등)은 상태만 바꾼다 (경로 추종 프로그램은 아직 없음 — 붙으면 여기로 합친다).
+모터 출력은 bridge/motor.py 한 곳 — 기본은 시험 모드(신호 안 보냄), robot/.env 에 SHERPY_MOTOR=on 일 때만 실제 출력.
 
 [보안]
 - 파이는 바깥에서 들어오는 연결을 받지 않는다. 파이가 서버로 먼저 나가서 명령을 가져온다(포트 개방 없음).
@@ -35,6 +39,8 @@ from bridge import config as C  # noqa: E402
 from bridge import TelemetryUplink, CommandDownlink  # noqa: E402
 from bridge.streamer import Streamer  # noqa: E402
 from bridge import system  # noqa: E402
+from bridge.motor import Motor  # noqa: E402
+from bridge.joystick import Joystick  # noqa: E402
 try:  # numpy 가 없어도 에이전트(연결·끄기 버튼)는 살아 있어야 한다
     from bridge.vision import Vision  # noqa: E402
 except Exception as _e:  # noqa: BLE001
@@ -54,6 +60,44 @@ HEALTH_EVERY = 10.0  # 초
 state = {"mode": "idle", "watchdog": False, "busy": None, "last_full": {}, "shutting": None}
 streamer = Streamer()
 vision = Vision()
+motor = Motor()
+TEACH_DIR = HERE / "teach_log"
+teach = {"f": None}
+
+
+def joy_allow() -> str | None:
+    """수동 조종을 받아도 되나 — 안 되면 이유 (앱에 그대로 보임)"""
+    if state["mode"] == "estop":
+        return "긴급 정지 상태예요 — [정지 해제] 후 조종할 수 있어요"
+    if state["mode"] == "follow":
+        return "자동주행 중이에요 — 일시정지하면 수동 조종할 수 있어요"
+    if state["shutting"]:
+        return "로봇이 꺼지는 중이에요"
+    return None
+
+
+def joy_input(steer: float, speed: float) -> None:
+    """티칭 중이면 조작을 기록 (나중에 GPS·엔코더 기록과 합쳐 경로로 쓴다)"""
+    f = teach["f"]
+    if f and state["mode"] == "teach":
+        f.write(f'{{"t":{time.time():.3f},"steer":{steer:.3f},"speed":{speed:.3f}}}' + "\n")
+
+
+def teach_open() -> None:
+    teach_close()
+    TEACH_DIR.mkdir(exist_ok=True)
+    path = TEACH_DIR / f"{time.strftime('%Y%m%d-%H%M%S')}.jsonl"
+    teach["f"] = open(path, "a", encoding="utf-8", buffering=1)
+    log(f"   티칭 기록 → {path.name}")
+
+
+def teach_close() -> None:
+    if teach["f"]:
+        teach["f"].close()
+        teach["f"] = None
+
+
+joystick = Joystick(motor, joy_allow, joy_input)
 down = CommandDownlink()
 up = TelemetryUplink()
 stop_evt = threading.Event()
@@ -75,6 +119,11 @@ def push_health(full: bool = False, extra: dict | None = None) -> None:
     h["streamError"] = streamer.error
     h["vision"] = vision.running
     h["visionError"] = vision.error
+    h["joy"] = joystick.info()              # 주소·비밀번호 — 서버는 주인에게만 보여 준다
+    h["joyConnected"] = joystick.connected
+    h["joyError"] = joystick.error
+    h["motorLive"] = motor.live
+    h["motorError"] = motor.error
     if state["shutting"]:
         h["shuttingDown"] = state["shutting"]   # 꺼질 때까지 계속 '꺼지는 중'으로 보이게
     if extra:
@@ -144,6 +193,17 @@ def vision_off() -> None:
     log("⏹ 인식 테스트 종료")
 
 
+def joy_on() -> None:
+    log("🕹 수동 조종 연결 켜는 중…")
+    ok = joystick.start()
+    log(f"✅ 조종 연결 준비 ({'실제 출력' if motor.live else '시험 모드 — 모터 신호 안 보냄'})" if ok else f"❌ 조종 연결 실패: {joystick.error}")
+
+
+def joy_off() -> None:
+    joystick.stop()
+    log("⏹ 수동 조종 연결 종료")
+
+
 def power_action(kind: str) -> None:
     """kind: reboot | poweroff — 확인 보고를 먼저 보내고 3초 뒤 실행.
 
@@ -154,9 +214,10 @@ def power_action(kind: str) -> None:
     if subprocess.run(["sudo", "-n", "-l", "/usr/bin/systemctl", kind], capture_output=True).returncode != 0:
         log(f"⛔ {kind} 권한 없음 — install_agent.sh 를 다시 실행하세요")
         return
-    log(f"🔌 {kind} 준비 — 송출·인식 종료")
+    log(f"🔌 {kind} 준비 — 송출·인식·조종 종료")
     streamer.stop()
     vision.stop()
+    joystick.stop()
     state["shutting"] = kind
     push_health()
 
@@ -187,6 +248,10 @@ def on_command(ctype: str, payload: dict) -> None:
     elif ctype == "VISION_MARK":
         name = vision.mark(str(payload.get("kind", "")))
         log(f"   표본 저장: {name}" if name else "   표본 저장 안 됨 (인식이 꺼져 있거나 종류가 틀림)")
+    elif ctype == "JOY_ON":
+        in_background("joy_on", joy_on)
+    elif ctype == "JOY_OFF":
+        in_background("joy_off", joy_off)
     elif ctype == "SYS_CHECK":
         in_background("check", lambda: None)
     elif ctype in ("REBOOT", "POWER_OFF"):
@@ -198,13 +263,32 @@ def on_command(ctype: str, payload: dict) -> None:
         else:
             power_action("reboot" if ctype == "REBOOT" else "poweroff")
     elif ctype == "ESTOP":
-        state["mode"] = "estop"
+        state["mode"] = "estop"         # 먼저 상태를 바꿔 새 조종 신호를 막고
+        joystick.halt()                 # 바퀴 즉시 정지
+        motor.stop()
+        teach_close()
     elif ctype in ("PAUSE", "STOP_TEACH"):
-        state["mode"] = "idle"
+        if state["mode"] != "estop":    # 긴급 정지는 [정지 해제]로만 풀린다
+            state["mode"] = "idle"
+        joystick.halt()
+        motor.stop()
+        teach_close()
     elif ctype == "START_TEACH":
-        state["mode"] = "teach"
-    elif ctype in ("START_FOLLOW", "RESUME"):
-        state["mode"] = "follow"
+        if state["mode"] in ("estop", "follow"):
+            log("⛔ 정지·자동주행 중에는 티칭을 시작할 수 없어요")
+        else:
+            state["mode"] = "teach"
+            teach_open()
+    elif ctype == "RESUME":
+        # 긴급 정지 해제 → 대기 / 일시정지였으면 자동주행 재개
+        state["mode"] = "idle" if state["mode"] == "estop" else "follow"
+    elif ctype == "START_FOLLOW":
+        if state["mode"] == "estop":
+            log("⛔ 긴급 정지 상태 — 먼저 정지 해제")
+        else:
+            joystick.halt()
+            teach_close()
+            state["mode"] = "follow"
     else:
         log(f"   (처리하지 않는 명령)")
 
@@ -213,9 +297,10 @@ def on_watchdog() -> None:
     # 서버와 3초 넘게 끊김 → 스스로 정지. 모터 제어가 붙으면 여기서 ESC 중립.
     if not state["watchdog"]:
         state["watchdog"] = True
-        if state["mode"] in ("follow", "teach"):
-            state["mode"] = "idle"
-        log(f"⚠️ 서버 응답 {C.WATCHDOG_SEC:.0f}초 넘게 없음 — 정지 상태로 전환")
+        if state["mode"] == "follow":   # 자동주행은 멈춘다. 수동 조종(티칭)은 폰과 직접 연결이라 계속 —
+            state["mode"] = "idle"      # 그쪽이 끊기면 데드맨이 0.3초 안에 멈춘다
+            motor.stop()
+        log(f"⚠️ 서버 응답 {C.WATCHDOG_SEC:.0f}초 넘게 없음 — 자동주행 정지")
 
 
 # ── 시작 ──────────────────────────────────────
@@ -256,6 +341,9 @@ def main() -> None:
         pass
     finally:
         log("종료 중…")
+        joystick.stop()
+        motor.close()
+        teach_close()
         streamer.stop()
         vision.stop()
         up.stop()

@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Play, Pause, CircleDot, Square, Gauge, Route as RouteIcon, Check, Clock, X, Loader } from "lucide-react";
+import { Play, Pause, CircleDot, Square, Gauge, Route as RouteIcon, Check, Clock, X, Loader, Gamepad2, Bot } from "lucide-react";
 import { useRobot } from "../RobotProvider";
 import { sendCommand } from "@/hooks/useRobotStream";
 import PageHeader from "@/components/ui/PageHeader";
 import Sheet from "@/components/ui/Sheet";
 import EstopButton from "@/components/robot/EstopButton";
+import ManualDrive from "@/components/robot/ManualDrive";
 import { FAULT_LABEL } from "@/lib/robot/types";
 import { DEFAULT_PARAMS } from "@/lib/sherpy/params";
 import { findRoute, useMyRoutes, markTaught } from "@/lib/my-routes";
@@ -17,15 +18,22 @@ import { demoRobot, type CommandLog } from "@/lib/robot/demo-robot";
 const CMD_LABEL: Record<string, string> = {
   ESTOP: "긴급 정지", START_TEACH: "티칭 시작", STOP_TEACH: "티칭 종료", START_FOLLOW: "자동주행 시작",
   PAUSE: "일시정지", RESUME: "재개", SET_ROUTE: "코스 지정", SET_SPEED_LIMIT: "속도 제한",
+  JOY_ON: "수동 조종 연결", JOY_OFF: "수동 조종 끊기",
 };
 
-/** S10-제어 — 티칭·자동주행·일시정지·재개, 최대 속도 제한, 코스, 명령 기록 (PRD F-2) */
+/**
+ * S10-제어 (PRD F-2)
+ *  [수동] 조이스틱으로 직접 몰기 — 티칭(코스 학습)은 여기서 몰면서 기록한다
+ *  [자동] 티칭한 코스를 따라 자율주행 — 시작·일시정지·재개, 최대 속도 제한
+ * 코스 선택·명령 기록·긴급 정지는 두 탭 공통.
+ */
 export default function RobotControl() {
   const { robotId, latest, state, demo, commands } = useRobot();
   const [busy, setBusy] = useState(false);
   const [confirmFollow, setConfirmFollow] = useState(false);
   const [limit, setLimit] = useState(DEFAULT_PARAMS.robotMax);
   const [pickOpen, setPickOpen] = useState(false);
+  const [tab, setTab] = useState<"manual" | "auto">("auto");
   const mine = useMyRoutes();
   const prevMode = useRef<string>("idle");
   const user = useUser();
@@ -33,6 +41,13 @@ export default function RobotControl() {
   const mode = latest?.mode ?? "idle";
   const route = findRoute(latest?.routeId);
   const needsTeach = !!route && !route.taught;
+  const estopped = mode === "estop" || (latest?.safetyLevel ?? 0) >= 3;
+
+  // 티칭 중이면 수동 탭, 자동주행 중이면 자동 탭을 보여 준다
+  useEffect(() => {
+    if (mode === "teach") setTab("manual");
+    else if (mode === "follow") setTab("auto");
+  }, [mode]);
 
   // 티칭 종료(teach → idle) 시 내 코스에 키프레임 수를 기록
   useEffect(() => {
@@ -68,18 +83,53 @@ export default function RobotControl() {
         </div>
       </section>
 
-      <section className="mt-3 grid grid-cols-2 gap-2">
-        {mode === "teach"
-          ? <Btn onClick={() => cmd("STOP_TEACH")} disabled={offline || busy} icon={<Square size={16} />}>티칭 종료·저장</Btn>
-          : <Btn onClick={() => cmd("START_TEACH")} disabled={offline || busy || mode === "follow"} icon={<CircleDot size={16} />}>티칭 시작</Btn>}
-        <Btn onClick={() => setConfirmFollow(true)} disabled={offline || busy || mode === "follow" || mode === "teach" || needsTeach} primary icon={<Play size={16} />}>자동주행 시작</Btn>
-        <Btn onClick={() => cmd("PAUSE")} disabled={offline || busy || mode !== "follow"} icon={<Pause size={16} />}>일시정지</Btn>
-        <Btn onClick={() => cmd("RESUME")} disabled={offline || busy} icon={<Play size={16} />}>{mode === "estop" || (latest?.safetyLevel ?? 0) >= 3 ? "정지 해제" : "재개"}</Btn>
-      </section>
-      {needsTeach && mode !== "teach" && (
-        <p className="mt-2 rounded-xl bg-sherpy-50 px-3 py-2 text-xs text-sherpy-700">
-          아직 티칭하지 않은 코스예요. [티칭 시작] 후 송신기로 한 번 몰고 [티칭 종료·저장]하면 자동주행할 수 있어요.
-        </p>
+      {/* 수동 / 자동 */}
+      <div role="tablist" aria-label="제어 방식" className="mt-3 grid grid-cols-2 gap-1 rounded-2xl bg-line/60 p-1">
+        {([["manual", "수동 제어", <Gamepad2 key="m" size={16} />], ["auto", "자동 제어", <Bot key="a" size={16} />]] as const).map(([k, label, icon]) => (
+          <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
+            className={`touch flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-semibold ${tab === k ? "bg-surface text-ink shadow-sm" : "text-muted"}`}>
+            {icon}{label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "manual" ? (
+        <>
+          <p className="mt-3 text-xs leading-relaxed text-muted">
+            조이스틱으로 직접 몰아요. <b className="text-body">[티칭 시작]</b>을 누르고 코스를 한 바퀴 몰면 로봇이 그 길을 기억해요.
+          </p>
+          <section className="mt-3 grid grid-cols-2 gap-2">
+            {mode === "teach"
+              ? <Btn onClick={() => cmd("STOP_TEACH")} disabled={offline || busy} primary icon={<Square size={16} />}>티칭 종료·저장</Btn>
+              : <Btn onClick={() => cmd("START_TEACH")} disabled={offline || busy || mode === "follow" || estopped} icon={<CircleDot size={16} />}>티칭 시작</Btn>}
+            {estopped
+              ? <Btn onClick={() => cmd("RESUME")} disabled={offline || busy} icon={<Play size={16} />}>정지 해제</Btn>
+              : <div className={`flex items-center justify-center rounded-xl text-xs font-semibold ${mode === "teach" ? "bg-sherpy-50 text-sherpy-700" : "text-muted"}`}>
+                  {mode === "teach" ? "● 기록 중" : mode === "follow" ? "자동주행 중" : "대기"}
+                </div>}
+          </section>
+          {mode === "follow" && (
+            <p className="mt-2 rounded-xl bg-level-1/10 px-3 py-2 text-xs text-level-1">자동주행 중에는 수동 조종이 막혀요. [자동 제어]에서 일시정지하면 조종할 수 있어요.</p>
+          )}
+          <div className="mt-3">
+            <ManualDrive robotId={robotId} demo={demo} offline={offline} />
+          </div>
+        </>
+      ) : (
+        <>
+          <section className="mt-3 grid grid-cols-2 gap-2">
+            <div className="col-span-2 grid">
+              <Btn onClick={() => setConfirmFollow(true)} disabled={offline || busy || mode === "follow" || mode === "teach" || needsTeach || estopped} primary icon={<Play size={16} />}>자동주행 시작</Btn>
+            </div>
+            <Btn onClick={() => cmd("PAUSE")} disabled={offline || busy || mode !== "follow"} icon={<Pause size={16} />}>일시정지</Btn>
+            <Btn onClick={() => cmd("RESUME")} disabled={offline || busy} icon={<Play size={16} />}>{estopped ? "정지 해제" : "재개"}</Btn>
+          </section>
+          {needsTeach && mode !== "teach" && (
+            <p className="mt-2 rounded-xl bg-sherpy-50 px-3 py-2 text-xs text-sherpy-700">
+              아직 티칭하지 않은 코스예요. [수동 제어]에서 [티칭 시작] 후 조이스틱으로 한 번 몰고 [티칭 종료·저장]하면 자동주행할 수 있어요.
+            </p>
+          )}
+        </>
       )}
       {(latest?.safetyLevel ?? 0) >= 3 && (
         <p className="mt-2 rounded-xl bg-level-3/10 px-3 py-2 text-xs text-level-3">
@@ -87,6 +137,7 @@ export default function RobotControl() {
         </p>
       )}
 
+      {tab === "auto" && (
       <div className="card mt-3 p-4">
         <div className="flex items-center justify-between text-sm">
           <span className="flex items-center gap-1.5"><Gauge size={16} className="text-sherpy-600" />최대 속도 제한</span>
@@ -99,6 +150,7 @@ export default function RobotControl() {
                className="mt-3 w-full accent-sherpy-600" aria-label="최대 속도 제한" />
         <p className="mt-1 text-[11px] text-muted">SHERPY 7.3 기본 로봇 최대속도 {DEFAULT_PARAMS.robotMax} m/s · 강아지 목표속도 {DEFAULT_PARAMS.dogSpeed} m/s</p>
       </div>
+      )}
 
       {commands.length > 0 && (
         <section className="card mt-3 p-4">

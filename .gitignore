@@ -34,3 +34,5 @@ robot/provision/
 # 인식 모델(install_vision.sh 가 받음)·테스트 표본(사진) — 용량이 커서 git 밖
 robot/models/
 robot/vision_log/
+# 티칭 조작 기록 (파이에서 생김)
+robot/teach_log/

@@ -41,6 +41,17 @@ PWM_MAX_US    = 2000
 # 원격 정지는 보조 수단이고, 1차 안전장치는 물리 E-stop 버튼이다.
 WATCHDOG_SEC  = 3.0
 
+# ── 모터 출력 / 수동 조종 (조이스틱 — 티칭 때 사람이 몬다) ─────
+# 기본은 '시험 모드': PCA9685 로 신호를 보내지 않고 보낼 값만 계산해 앱에 보여 준다.
+# 배선을 끝내고 바퀴를 바닥에서 띄운 상태에서 robot/.env 에 SHERPY_MOTOR=on 을 넣어야 실제로 나간다.
+MOTOR_LIVE       = os.environ.get("SHERPY_MOTOR", "off") == "on"
+JOY_PORT         = 8890      # 파이 안에서만 여는 포트 (127.0.0.1) — 밖에서는 터널로만 들어온다
+JOY_DEADMAN_SEC  = 0.3       # 이 시간 동안 조종 신호가 없으면 스스로 정지
+JOY_MAX_THROTTLE = float(os.environ.get("SHERPY_JOY_MAX", "0.25"))  # 스로틀 상한 (전진 0~1 중). 처음엔 낮게
+JOY_STEER_MAX    = 1.0       # 조향 상한 (±1 = 서보 끝까지)
+JOY_DEAD_ZONE    = 0.08      # 스틱 가운데 흔들림 무시
+JOY_MAX_HZ       = 30        # 이보다 자주 오는 신호는 건너뜀 (0 신호는 항상 처리)
+
 # ── 안전 임계값 (SHERPY 7.3 기준, 2026-11-01 갱신) ─────
 # ⚠️ 웹 src/lib/robot/types.ts 의 THRESHOLDS · robot/sherpy_core/params.py 와 반드시 같아야 한다.
 F_CAUTION = 8.0   # N — L1 주의 표시 (warn/2)

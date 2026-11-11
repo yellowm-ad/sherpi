@@ -6,6 +6,8 @@
 
 웹 [로봇 관리] 화면의 버튼 → 서버 명령 큐 → 여기서 1초마다 가져와 실행:
     CAMERA_ON / CAMERA_OFF   영상 송출 켜기·끄기 (bridge/streamer.py)
+    VISION_ON / VISION_OFF   자율주행 인식 테스트 켜기·끄기 (bridge/vision.py — 카메라를 송출과 나눠 쓸 수 없어 송출은 끈다)
+    VISION_SET / VISION_MARK 인식 판단 값 바꾸기 / '놓침·괜히 멈춤·잘함' 표본 저장 (모터는 움직이지 않음)
     SYS_CHECK                연결·전원·부품 전체 점검 후 보고
     REBOOT / POWER_OFF       다시 시작 / 안전하게 끄기 (주행 중이면 거부)
 그 외 ESTOP·PAUSE 등 주행 명령은 상태만 바꾼다 (모터 제어 프로그램은 아직 없음 — 붙으면 여기로 합친다).
@@ -33,6 +35,17 @@ from bridge import config as C  # noqa: E402
 from bridge import TelemetryUplink, CommandDownlink  # noqa: E402
 from bridge.streamer import Streamer  # noqa: E402
 from bridge import system  # noqa: E402
+try:  # numpy 가 없어도 에이전트(연결·끄기 버튼)는 살아 있어야 한다
+    from bridge.vision import Vision  # noqa: E402
+except Exception as _e:  # noqa: BLE001
+    class Vision:  # type: ignore[no-redef]
+        running = False
+        error = f"인식 모듈을 못 불러왔어요 (bash robot/install_vision.sh): {str(_e)[:80]}"
+        params = None
+        def start(self): return False
+        def stop(self): pass
+        def set_params(self, d): pass
+        def mark(self, kind): return None
 
 HEADERS = {"Authorization": f"Bearer {C.API_KEY}"}
 HEALTH_URL = f"{C.SERVER_URL}/api/robots/{C.ROBOT_ID}/health"
@@ -40,6 +53,7 @@ HEALTH_EVERY = 10.0  # 초
 
 state = {"mode": "idle", "watchdog": False, "busy": None, "last_full": {}, "shutting": None}
 streamer = Streamer()
+vision = Vision()
 down = CommandDownlink()
 up = TelemetryUplink()
 stop_evt = threading.Event()
@@ -51,7 +65,7 @@ def log(msg: str) -> None:
 
 # ── 상태 보고 ──────────────────────────────────
 def push_health(full: bool = False, extra: dict | None = None) -> None:
-    h = system.collect(streamer.running, full, down.last_rtt_ms)
+    h = system.collect(streamer.running, full, down.last_rtt_ms, camera_busy=vision.running)
     if full:
         state["last_full"] = {"devices": h["devices"], "checkedAt": h["checkedAt"]}
     else:
@@ -59,6 +73,8 @@ def push_health(full: bool = False, extra: dict | None = None) -> None:
     h["mode"] = state["mode"]
     h["busy"] = state["busy"]                 # "camera_on" 처럼 진행 중인 작업
     h["streamError"] = streamer.error
+    h["vision"] = vision.running
+    h["visionError"] = vision.error
     if state["shutting"]:
         h["shuttingDown"] = state["shutting"]   # 꺼질 때까지 계속 '꺼지는 중'으로 보이게
     if extra:
@@ -98,6 +114,9 @@ def in_background(name: str, fn) -> None:
 
 
 def camera_on() -> None:
+    if vision.running:
+        log("👁 인식 테스트 끄는 중 (카메라를 송출에 넘김)")
+        vision.stop()
     log("🎥 카메라 송출 켜는 중…")
     ok = streamer.start()
     log(f"✅ 송출 시작 {streamer.url}" if ok else f"❌ 송출 실패: {streamer.error}")
@@ -106,6 +125,23 @@ def camera_on() -> None:
 def camera_off() -> None:
     streamer.stop()
     log("⏹ 송출 종료")
+
+
+def vision_on() -> None:
+    if streamer.running:
+        log("🎥 송출 끄는 중 (카메라를 인식 테스트에 넘김)")
+        streamer.stop()
+    log("👁 인식 테스트 켜는 중…")
+    ok = vision.start()
+    if ok:
+        time.sleep(3)  # 카메라가 정말 열렸는지 잠깐 본다
+    ok = ok and vision.running
+    log("✅ 인식 테스트 시작" if ok else f"❌ 인식 테스트 실패: {vision.error}")
+
+
+def vision_off() -> None:
+    vision.stop()
+    log("⏹ 인식 테스트 종료")
 
 
 def power_action(kind: str) -> None:
@@ -118,8 +154,9 @@ def power_action(kind: str) -> None:
     if subprocess.run(["sudo", "-n", "-l", "/usr/bin/systemctl", kind], capture_output=True).returncode != 0:
         log(f"⛔ {kind} 권한 없음 — install_agent.sh 를 다시 실행하세요")
         return
-    log(f"🔌 {kind} 준비 — 송출 종료")
+    log(f"🔌 {kind} 준비 — 송출·인식 종료")
     streamer.stop()
+    vision.stop()
     state["shutting"] = kind
     push_health()
 
@@ -140,6 +177,16 @@ def on_command(ctype: str, payload: dict) -> None:
         in_background("camera_on", camera_on)
     elif ctype == "CAMERA_OFF":
         in_background("camera_off", camera_off)
+    elif ctype == "VISION_ON":
+        in_background("vision_on", vision_on)
+    elif ctype == "VISION_OFF":
+        in_background("vision_off", vision_off)
+    elif ctype == "VISION_SET":
+        vision.set_params(payload)          # 이름·범위는 Params.update 가 거른다
+        log(f"   인식 값 → {vision.params.to_dict() if vision.params else '-'}")
+    elif ctype == "VISION_MARK":
+        name = vision.mark(str(payload.get("kind", "")))
+        log(f"   표본 저장: {name}" if name else "   표본 저장 안 됨 (인식이 꺼져 있거나 종류가 틀림)")
     elif ctype == "SYS_CHECK":
         in_background("check", lambda: None)
     elif ctype in ("REBOOT", "POWER_OFF"):
@@ -210,6 +257,7 @@ def main() -> None:
     finally:
         log("종료 중…")
         streamer.stop()
+        vision.stop()
         up.stop()
         down.stop()
 

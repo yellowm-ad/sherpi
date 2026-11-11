@@ -49,6 +49,9 @@ export const robots = sherpy.table("robots", {
   streamToken: varchar("stream_token", { length: 64 }), // 영상 시청 비밀번호 (켤 때마다 새로, 주인에게만 전달)
   health: jsonb("health").$type<Record<string, unknown>>(),  // 로봇 상태 보고 (robot/agent.py)
   healthAt: timestamp("health_at", { withTimezone: true }),
+  vision: jsonb("vision").$type<Record<string, unknown>>(),   // 자율주행 인식 테스트 결과 (robot/bridge/vision.py)
+  visionFrame: text("vision_frame"),                          // 박스를 그린 최신 사진 (JPEG base64) — 테스트 중에만
+  visionAt: timestamp("vision_at", { withTimezone: true }),
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });

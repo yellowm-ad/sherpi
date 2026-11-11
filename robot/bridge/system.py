@@ -99,8 +99,9 @@ def camera_present(streaming: bool) -> bool | None:
     return "Available cameras" in out and "No cameras" not in out
 
 
-def collect(streaming: bool, full: bool, server_ms: float | None) -> dict:
-    """full=True 면 카메라·I2C 까지 (몇 초 걸림). 평소 10초 보고는 가벼운 것만."""
+def collect(streaming: bool, full: bool, server_ms: float | None, camera_busy: bool = False) -> dict:
+    """full=True 면 카메라·I2C 까지 (몇 초 걸림). 평소 10초 보고는 가벼운 것만.
+    camera_busy: 인식 테스트처럼 송출 말고 다른 프로그램이 카메라를 쓰는 중"""
     h = {
         "wifi": wifi(),
         "ip": local_ip(),
@@ -113,6 +114,6 @@ def collect(streaming: bool, full: bool, server_ms: float | None) -> dict:
         "agentAt": int(time.time()),
     }
     if full:
-        h["devices"] = {**i2c_devices(), "camera": camera_present(streaming)}
+        h["devices"] = {**i2c_devices(), "camera": camera_present(streaming or camera_busy)}
         h["checkedAt"] = int(time.time())
     return h

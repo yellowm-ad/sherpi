@@ -52,6 +52,11 @@ export const COMMAND_TYPES = [
   "SYS_CHECK",
   "REBOOT",
   "POWER_OFF",
+  // 자율주행 인식 테스트 (robot/bridge/vision.py) — 판단만 보여 주고 모터는 움직이지 않는다
+  "VISION_ON",
+  "VISION_OFF",
+  "VISION_SET",
+  "VISION_MARK",
 ] as const;
 
 /** 끄기·재시작은 payload.confirm === true 일 때만 큐에 넣는다 (실수 방지 — 로봇도 한 번 더 확인) */
@@ -71,16 +76,54 @@ export const HealthSchema = z.object({
   uptime: z.number().int().min(0).nullable(),
   stream: z.boolean(),
   streamError: z.string().max(200).nullable().optional(),
+  vision: z.boolean().optional(),
+  visionError: z.string().max(200).nullable().optional(),
   gpsPort: z.boolean(),
   agentAt: z.number().int(),
   mode: z.enum(["idle", "teach", "follow", "estop"]),
-  busy: z.enum(["camera_on", "camera_off", "check"]).nullable(),
+  busy: z.enum(["camera_on", "camera_off", "check", "vision_on", "vision_off"]).nullable(),
   devices: z.object({ motorDriver: nb, encoder: nb, camera: nb }).optional(),
   checkedAt: z.number().int().optional(),
   shuttingDown: z.enum(["reboot", "poweroff"]).optional(),
   rejected: z.enum(["REBOOT", "POWER_OFF"]).optional(),
 }).strict();
 export type RobotHealth = z.infer<typeof HealthSchema>;
+
+/**
+ * 자율주행 인식 테스트 결과 (robot/bridge/vision.py → PUT /api/robots/:id/vision, 0.5초마다)
+ * 판단 규칙은 robot/bridge/avoid.py 한 곳에만 있다 — 앱은 보여 주기만 한다.
+ */
+export const VISION_DECISIONS = ["GO", "SLOW", "AVOID_LEFT", "AVOID_RIGHT", "WAIT", "STOP"] as const;
+const n01 = z.number().min(0).max(1);
+export const VisionResultSchema = z.object({
+  decision: z.enum(VISION_DECISIONS),
+  reason: z.string().max(120),
+  zones: z.object({ left: n01, center: n01, right: n01 }),
+  heading: z.number().min(-1).max(1),
+  free: z.array(n01).max(16),
+  objects: z.array(z.object({
+    label: z.string().max(16), cls: z.string().max(24), conf: n01,
+    box: z.array(z.number().min(-0.1).max(1.1)).length(4),
+    near: n01, zone: z.enum(["left", "center", "right"]).nullable(),
+  })).max(30),
+  waitLeft: z.number().min(0).max(60).nullable(),
+  fps: z.number().min(0).max(200),
+  inferMs: z.number().min(0).max(60_000),
+  model: z.string().max(40).nullable(),
+  note: z.string().max(200).nullable(),
+  params: z.object({
+    conf: z.number(), stop_near: z.number(), slow_near: z.number(), corridor: z.number(), horizon: z.number(),
+    wait_s: z.number(), floor_on: z.boolean(), floor_tol: z.number(), ignore_dog: z.boolean(), imgsz: z.number().int(),
+  }),
+  marks: z.object({ missed: z.number().int().min(0), false_stop: z.number().int().min(0), good: z.number().int().min(0) }),
+  at: z.number().int(),
+}).strict();
+export type VisionResult = z.infer<typeof VisionResultSchema>;
+export const VisionUploadSchema = z.object({
+  result: VisionResultSchema.nullable(),
+  // 박스를 그린 사진 (JPEG base64, 480px 폭 · 보통 20~40KB)
+  frame: z.string().max(400_000).regex(/^[A-Za-z0-9+/=]*$/).nullable(),
+}).strict();
 
 export const CommandSchema = z.object({
   type: z.enum(COMMAND_TYPES),

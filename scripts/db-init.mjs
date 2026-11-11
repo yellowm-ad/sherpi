@@ -28,6 +28,12 @@ await sql`alter table sherpy.robots
             add column if not exists health jsonb,
             add column if not exists health_at timestamptz`;
 
+// 2026-11-11 자율주행 인식 테스트 (robot/bridge/vision.py) — 최신 결과 1건만 덮어쓴다
+await sql`alter table sherpy.robots
+            add column if not exists vision jsonb,
+            add column if not exists vision_frame text,
+            add column if not exists vision_at timestamptz`;
+
 const rooms = [
   ["덕진공원 산책 메이트", "오늘 덕진공원 같이 걸을 분, 코스·시간 공유", "🌳", 1],
   ["셰르피 사용팁", "티칭·자동주행·장력 경고 노하우", "🤖", 2],

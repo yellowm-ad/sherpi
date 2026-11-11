@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { Wifi, WifiOff, Video, VideoOff, Stethoscope, Power, RotateCw, Loader, Check, X, Minus, ChevronRight } from "lucide-react";
+import { Wifi, WifiOff, Video, VideoOff, Stethoscope, Power, RotateCw, Loader, Check, X, Minus, ChevronRight, ScanEye } from "lucide-react";
 import { useRobot } from "../RobotProvider";
 import { sendCommand } from "@/hooks/useRobotStream";
 import PageHeader from "@/components/ui/PageHeader";
@@ -123,6 +123,14 @@ export default function RobotSystem() {
           영상 보기<ChevronRight size={16} />
         </Link>
       )}
+      <Link href="/robot/system/vision" className="press card mt-2 flex items-center gap-3 p-3">
+        <span className={`flex h-10 w-10 items-center justify-center rounded-full ${h?.vision ? "bg-sherpy-600 text-white" : "bg-sherpy-50 text-sherpy-600"}`}><ScanEye size={20} /></span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-bold text-ink">자율주행 인식 테스트</span>
+          <span className="block text-[11px] text-muted">{h?.vision ? "지금 인식 중" : "카메라로 장애물 보고 멈춤·피함 판단 (바퀴는 안 움직임)"}</span>
+        </span>
+        <ChevronRight size={18} className="text-muted" />
+      </Link>
       {h?.streamError && !camOn && !camWorking && <p className="mt-2 rounded-xl bg-level-3/10 px-3 py-2 text-xs text-level-3">카메라를 켜지 못했어요: {h.streamError}</p>}
       {err && <p className="mt-2 rounded-xl bg-level-3/10 px-3 py-2 text-xs text-level-3">{err}</p>}
 

@@ -19,7 +19,6 @@
 import asyncio
 import json
 import math
-import re
 import secrets
 import subprocess
 import threading
@@ -27,9 +26,8 @@ import time
 from collections.abc import Callable
 
 from . import config as C
+from . import tunnel
 from .motor import Motor
-
-URL_RE = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com")
 
 
 def _num(v) -> float:
@@ -163,7 +161,7 @@ class Joystick:
             except ImportError:
                 self.error = "websockets 가 없어요 (bash robot/install_agent.sh 다시 실행)"
                 return False
-            if subprocess.run(["which", "cloudflared"], capture_output=True).returncode != 0:
+            if not tunnel.available():
                 self.error = "cloudflared 가 설치돼 있지 않아요"
                 return False
 
@@ -176,25 +174,11 @@ class Joystick:
                 self.error = self.error or "조종 서버를 못 열었어요"
                 return False
 
-            self.cf = subprocess.Popen(
-                ["cloudflared", "tunnel", "--no-autoupdate", "--url", f"http://localhost:{C.JOY_PORT}"],
-                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-            )
-            killer = threading.Timer(40, lambda: self.cf and self.cf.poll() is None and not self.url and self.cf.kill())
-            killer.daemon = True
-            killer.start()
-            url = None
-            for line in self.cf.stdout:  # 보통 5~15초
-                m = URL_RE.search(line)
-                if m:
-                    url = m.group(0)
-                    break
-            killer.cancel()
+            self.cf, url = tunnel.open_tunnel(C.JOY_PORT)
             if not url:
                 self.error = "터널 주소를 못 받았어요 (인터넷 연결 확인)"
                 self._kill()
                 return False
-            threading.Thread(target=lambda: [None for _ in self.cf.stdout], daemon=True).start()
             self.url = url
             return True
 
@@ -208,12 +192,7 @@ class Joystick:
 
     def _kill(self) -> None:
         self.core.reset()
-        if self.cf and self.cf.poll() is None:
-            self.cf.terminate()
-            try:
-                self.cf.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                self.cf.kill()
+        tunnel.close(self.cf)
         self.cf = None
         self.url = None
         self.token = None

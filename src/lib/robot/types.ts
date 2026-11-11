@@ -81,6 +81,12 @@ export const HealthSchema = z.object({
   streamError: z.string().max(200).nullable().optional(),
   vision: z.boolean().optional(),
   visionError: z.string().max(200).nullable().optional(),
+  // 인식 화면 직접 보기 (robot/bridge/live_view.py) — 폰 ↔ 파이 터널. 주인에게만 보인다
+  visionLive: z.object({
+    url: z.string().regex(/^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/),
+    token: z.string().min(16).max(64),
+  }).nullable().optional(),
+  visionLiveError: z.string().max(200).nullable().optional(),
   gpsPort: z.boolean(),
   agentAt: z.number().int(),
   mode: z.enum(["idle", "teach", "follow", "estop"]),

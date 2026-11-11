@@ -119,6 +119,8 @@ def push_health(full: bool = False, extra: dict | None = None) -> None:
     h["streamError"] = streamer.error
     h["vision"] = vision.running
     h["visionError"] = vision.error
+    h["visionLive"] = vision.live.info() if vision.running else None   # 주소·비밀번호 — 서버는 주인에게만
+    h["visionLiveError"] = vision.live.error
     h["joy"] = joystick.info()              # 주소·비밀번호 — 서버는 주인에게만 보여 준다
     h["joyConnected"] = joystick.connected
     h["joyError"] = joystick.error
@@ -186,6 +188,13 @@ def vision_on() -> None:
         time.sleep(3)  # 카메라가 정말 열렸는지 잠깐 본다
     ok = ok and vision.running
     log("✅ 인식 테스트 시작" if ok else f"❌ 인식 테스트 실패: {vision.error}")
+    if ok:
+        # 직접 보기 터널은 따로 (5~15초) — 그동안 웹은 서버 경유 사진을 보여 준다
+        def live_on() -> None:
+            ok2 = vision.live.start()
+            log("📡 화면 직접 보기 준비" if ok2 else f"⚠ 화면 직접 보기 실패 — 서버 경유로 보여 줘요: {vision.live.error}")
+            push_health()
+        threading.Thread(target=live_on, daemon=True).start()
 
 
 def vision_off() -> None:

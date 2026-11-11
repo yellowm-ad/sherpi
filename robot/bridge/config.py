@@ -52,6 +52,15 @@ JOY_STEER_MAX    = 1.0       # 조향 상한 (±1 = 서보 끝까지)
 JOY_DEAD_ZONE    = 0.08      # 스틱 가운데 흔들림 무시
 JOY_MAX_HZ       = 30        # 이보다 자주 오는 신호는 건너뜀 (0 신호는 항상 처리)
 
+# ── 자율주행 인식 — 실시간 화면 · 전력 절약 ──
+LIVE_PORT     = 8891        # 인식 화면 직접 보기 (127.0.0.1, 밖에서는 터널로만)
+LIVE_EVERY    = 0.2         # 초 — 직접 보기 사진 간격 (초당 5장)
+LIVE_MAX_VIEWERS = 3
+# 인식이 CPU 4코어를 다 쓰면 순간 전류가 커져 전원이 약할 때 파이가 재부팅된다(Undervoltage).
+# 코어 수·초당 장수를 줄여 전류를 낮춘다. 5V 5A 정품 어댑터면 4 / 10 으로 올려도 된다.
+VISION_CORES  = max(1, min(4, int(os.environ.get("SHERPY_VISION_CORES", "2"))))
+VISION_FPS    = max(2, min(15, int(os.environ.get("SHERPY_VISION_FPS", "6"))))
+
 # ── 안전 임계값 (SHERPY 7.3 기준, 2026-11-01 갱신) ─────
 # ⚠️ 웹 src/lib/robot/types.ts 의 THRESHOLDS · robot/sherpy_core/params.py 와 반드시 같아야 한다.
 F_CAUTION = 8.0   # N — L1 주의 표시 (warn/2)

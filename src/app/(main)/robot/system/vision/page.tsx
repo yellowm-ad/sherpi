@@ -52,6 +52,11 @@ export default function VisionTest() {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const running = !!h?.vision;
+  // 직접 보기 (폰 ↔ 파이 터널) — 연결되면 서버 경유 0.7초 가져오기를 멈춘다
+  const [live, setLive] = useState<"off" | "connecting" | "on">("off");
+  const [rtt, setRtt] = useState<number | null>(null);
+  const liveUrl = running ? h?.visionLive?.url ?? null : null;
+  const liveToken = running ? h?.visionLive?.token ?? null : null;
 
   const loadHealth = useCallback(async () => {
     if (robotId == null) return;
@@ -79,12 +84,56 @@ export default function VisionTest() {
     return () => clearInterval(a);
   }, [loadHealth, loadVision]);
 
-  // 인식 중이면 0.7초마다 사진·결과
+  // 인식 중이면 0.7초마다 사진·결과 (직접 보기가 안 될 때만)
   useEffect(() => {
-    if (!running) return;
+    if (!running || live === "on") return;
     const b = setInterval(() => { if (!document.hidden) { loadVision(); setNow(Date.now()); } }, 700);
     return () => clearInterval(b);
-  }, [running, loadVision]);
+  }, [running, live, loadVision]);
+
+  // 직접 보기 — 파이가 터널 주소를 올리면 붙는다. 끊기면 3초 뒤 다시 (보기 전용이라 자동 재연결 OK)
+  useEffect(() => {
+    if (!liveUrl || !liveToken) { setLive("off"); return; }
+    let ws: WebSocket | null = null;
+    let closed = false;
+    let retry: ReturnType<typeof setTimeout> | null = null;
+    let ping: ReturnType<typeof setInterval> | null = null;
+    const open = () => {
+      if (closed) return;
+      setLive("connecting");
+      ws = new WebSocket(liveUrl.replace(/^https:/, "wss:"));
+      ws.onopen = () => ws?.send(JSON.stringify({ t: "auth", token: liveToken }));
+      ws.onmessage = (e) => {
+        let m: { t?: string; result?: VisionResult; frame?: string; id?: number };
+        try { m = JSON.parse(String(e.data)); } catch { return; }
+        if (m.t === "hello") {
+          setLive("on");
+          ping = setInterval(() => ws?.readyState === 1 && ws.send(JSON.stringify({ t: "ping", id: Date.now() })), 2000);
+        } else if (m.t === "pong" && typeof m.id === "number") {
+          setRtt(Date.now() - m.id);
+        } else if (m.t === "frame" && m.result && typeof m.frame === "string") {
+          const at = new Date().toISOString();
+          setV({ result: m.result, frame: m.frame, at });
+          setNow(Date.now());
+          if (Date.now() - dirty.current > 3000) setP(m.result.params);
+        }
+      };
+      ws.onclose = (e) => {
+        if (ping) clearInterval(ping);
+        ping = null;
+        setLive("off");
+        setRtt(null);
+        if (!closed && e.code !== 4001) retry = setTimeout(open, 3000); // 4001 = 비밀번호 틀림 → health 갱신 기다림
+      };
+    };
+    open();
+    return () => {
+      closed = true;
+      if (retry) clearTimeout(retry);
+      if (ping) clearInterval(ping);
+      ws?.close();
+    };
+  }, [liveUrl, liveToken]);
 
   const cmd = async (type: string, payload: Record<string, unknown> = {}) => {
     setErr(null);
@@ -176,10 +225,17 @@ export default function VisionTest() {
               ? <img src={`data:image/jpeg;base64,${v.frame}`} alt="로봇 카메라 인식 화면" className="h-full w-full object-cover" />
               : <div className="flex h-full items-center justify-center text-xs text-white/70">사진을 기다리는 중…</div>}
             <span className={`absolute right-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-semibold ${stale ? "bg-level-3 text-white" : "bg-black/50 text-white"}`}>
-              {stale ? "끊김" : "실시간"} · <span className="tabular">{isFinite(ageS) ? `${ageS.toFixed(1)}초 전` : "—"}</span>
+              {stale ? "끊김" : live === "on" ? "직접 연결" : "서버 경유"} · <span className="tabular">{live === "on" && rtt != null ? `${rtt}ms` : isFinite(ageS) ? `${ageS.toFixed(1)}초 전` : "—"}</span>
             </span>
           </section>
-          <p className="mt-1 text-[10px] text-muted">색 사다리꼴 = 로봇이 지나갈 통로 · 빨강 박스 = 통로 안 · 노랑 = 옆길 · 회색 = 무시(우리 강아지) · 하늘색 선 = 바닥이 이어지는 끝 · 흰 화살표 = 길 방향</p>
+          {live !== "on" && (
+            <p className="mt-1 text-[11px] text-muted">
+              {live === "connecting" ? "로봇에 직접 연결하는 중… (그동안은 서버를 거쳐 1~3초 늦게 보여요)"
+                : h?.visionLiveError ? `직접 연결 안 됨 — 서버를 거쳐 1~3초 늦게 보여요 (${h.visionLiveError})`
+                : "직접 연결 준비 중 — 그동안은 서버를 거쳐 1~3초 늦게 보여요"}
+            </p>
+          )}
+          <p className="mt-1 text-[10px] text-muted">색 사다리꼴 = 로봇이 지나갈 통로 · 빨강 박스 = 통로 안 · 노랑 = 옆길 · 초록 = 우리 강아지 · 하늘색 선 = 바닥이 이어지는 끝 · 흰 화살표 = 길 방향</p>
 
           {/* ── 막힘 정도 ── */}
           {r && (

@@ -33,16 +33,19 @@ if __package__ in (None, ""):  # 파일로 직접 실행할 때
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from bridge.avoid import Avoider, Det, Params, corridor_half, COLS, GO, SLOW, WAIT, STOP  # noqa: E402
     from bridge import config as C  # noqa: E402
+    from bridge.live_view import LiveView  # noqa: E402
 else:
     from .avoid import Avoider, Det, Params, corridor_half, COLS, GO, SLOW, WAIT, STOP
     from . import config as C
+    from .live_view import LiveView
 
 ROBOT_DIR = Path(__file__).resolve().parent.parent
 MODELS = ROBOT_DIR / "models"
 LOG_DIR = ROBOT_DIR / "vision_log"
 LOG_MAX = 300           # 저장 표본 최대 개수 (오래된 것부터 지움)
-CAM_W, CAM_H, CAM_FPS = 640, 360, 10
-UPLOAD_EVERY = 0.5      # 초 — 웹 사진 갱신 주기
+CAM_W, CAM_H, CAM_FPS = 640, 360, C.VISION_FPS   # 인식이 따라갈 수 있는 만큼만 찍는다 (밀린 옛 사진 방지)
+UPLOAD_EVERY = 0.5      # 초 — 웹 사진 갱신 주기 (서버 경유)
+UPLOAD_EVERY_LIVE = 3.0 # 초 — 폰이 직접 보고 있을 땐 서버로는 가끔만 (전력·데이터 절약)
 MARK_KINDS = {"missed": "놓침", "false_stop": "괜히 멈춤", "good": "잘함"}
 
 # 화면 뒤집힘 — mediamtx.yml 의 rpiCameraHFlip/VFlip 과 같게 (.env 에 SHERPY_CAM_HFLIP=1)
@@ -193,6 +196,7 @@ class Vision:
         self.upload = upload
         # 줄 센서 값 {"theta": rad, "L": m} 을 돌려주는 함수 — 릴·AS5600 배선 전엔 None (화면만으로 우리 강아지 고름)
         self.leash_fn = None
+        self.live = LiveView()       # 폰 직접 보기 (터널) — agent 가 인식을 켤 때 같이 켠다
         self.error: str | None = None
         self.last: dict | None = None
         self._frame: np.ndarray | None = None
@@ -227,6 +231,7 @@ class Vision:
         return True
 
     def stop(self) -> None:
+        self.live.stop()
         self._stop.set()
         if self._thread:
             self._thread.join(timeout=8)
@@ -272,10 +277,27 @@ class Vision:
         except Exception as e:
             print(f"[vision] 올리기 실패: {e}", flush=True)
 
+    @staticmethod
+    def _limit_cpu() -> None:
+        """인식 스레드(와 여기서 생기는 계산 스레드)를 뒤쪽 코어 몇 개로만 — 순간 전류를 낮춰 재부팅 방지.
+        리눅스에서 sched_setaffinity(0) 은 '지금 스레드'에만 걸리고, 이후 만드는 스레드가 물려받는다."""
+        try:
+            n = os.cpu_count() or 4
+            k = min(n, C.VISION_CORES)
+            os.sched_setaffinity(0, set(range(n - k, n)))
+        except (AttributeError, OSError):
+            pass  # 윈도우·맥 (노트북 시험)
+        try:
+            cv2.setNumThreads(1)
+        except Exception:  # noqa: BLE001
+            pass
+        os.environ.setdefault("OMP_NUM_THREADS", str(C.VISION_CORES))
+
     def _run(self, camera) -> None:
+        self._limit_cpu()
         det = Detector()
         cam = camera or PiCamera()
-        last_up, frames, t0, infer_ms = 0.0, 0, time.monotonic(), 0.0
+        last_up, last_live, frames, t0, infer_ms = 0.0, 0.0, 0, time.monotonic(), 0.0
         fps = 0.0
         try:
             while not self._stop.is_set():
@@ -297,15 +319,25 @@ class Vision:
                 res.update({"fps": round(fps, 1), "inferMs": round(infer_ms), "model": det.name,
                             "note": det.error, "params": p.to_dict(), "marks": self.marks(), "at": int(time.time())})
                 self._frame, self.last = bgr, res
-                if self.upload and time.monotonic() - last_up >= UPLOAD_EVERY:
-                    last_up = time.monotonic()
-                    threading.Thread(target=self._put, args=(res, to_jpeg_b64(draw(bgr, res, p))), daemon=True).start()
+                watching = self.live.viewers > 0
+                t_now = time.monotonic()
+                jpg = None
+                if watching and t_now - last_live >= C.LIVE_EVERY:
+                    last_live = t_now
+                    jpg = to_jpeg_b64(draw(bgr, res, p))
+                    self.live.publish(res, jpg)
+                if self.upload and t_now - last_up >= (UPLOAD_EVERY_LIVE if watching else UPLOAD_EVERY):
+                    last_up = t_now
+                    jpg = jpg or to_jpeg_b64(draw(bgr, res, p))
+                    threading.Thread(target=self._put, args=(res, jpg), daemon=True).start()
                 if not self.upload:
                     yield_frame(bgr, res, p)
         except Exception as e:
             self.error = f"인식 중 오류: {str(e)[:150]}"
         finally:
             cam.close()
+            if not self._stop.is_set():   # 오류로 멈췄으면 직접 보기도 닫는다
+                self.live.stop()
 
 
 def yield_frame(bgr, res, p) -> None:

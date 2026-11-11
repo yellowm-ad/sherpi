@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { demoRobot, type CommandLog } from "@/lib/robot/demo-robot";
+import { SESSION_EVENT } from "@/lib/session";
 
 export interface TelemetryRow {
   id: number;
@@ -52,9 +53,23 @@ const fetchMyRobot = (): Promise<MyRobot | null> =>
     .catch(() => null);
 
 let mine: Promise<MyRobot | null> | null = null;
+/**
+ * "로봇 있음"만 기억한다. "없음"(게스트·로그인 전)은 기억하지 않는다 —
+ * 핸드폰에서 로그인 전에 홈을 먼저 열면 '없음'이 굳어 로그인 후에도 가상 로봇에 머물던 문제.
+ */
 export function myRobot() {
-  if (!mine) mine = fetchMyRobot();
+  if (!mine) {
+    const p: Promise<MyRobot | null> = fetchMyRobot().then((r) => {
+      if (!r && mine === p) mine = null;
+      return r;
+    });
+    mine = p;
+  }
   return mine;
+}
+/** 로그인·로그아웃·계정 전환 시 다시 찾게 한다 */
+export function resetMyRobot() {
+  mine = null;
 }
 export function myRobotId() {
   return myRobot().then((r) => r?.id ?? null);
@@ -80,6 +95,14 @@ export function useRobotStream() {
   const [demo, setDemo] = useState(false);
   const [commands, setCommands] = useState<CommandLog[]>([]);
   const lastRecvRef = useRef<number>(Date.now());
+  // 로그인 상태가 바뀌면 1 올려서 연결을 처음부터 다시 맺는다
+  const [epoch, setEpoch] = useState(0);
+
+  useEffect(() => {
+    const onSession = () => { resetMyRobot(); setEpoch((n) => n + 1); };
+    window.addEventListener(SESSION_EVENT, onSession);
+    return () => window.removeEventListener(SESSION_EVENT, onSession);
+  }, []);
 
   useEffect(() => {
     let cleanup = () => {};
@@ -152,7 +175,7 @@ export function useRobotStream() {
       clearInterval(watchdog);
       cleanup();
     };
-  }, []);
+  }, [epoch]);
 
   return { robotId, streamUrl, latest, state, demo, commands, lastRecvAt: lastRecvRef.current };
 }

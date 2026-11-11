@@ -25,9 +25,17 @@ let state: State = { loaded: false, demo: false, user: null };
 let loading: Promise<void> | null = null;
 const SERVER: State = { loaded: false, demo: false, user: null };
 
+/** 로그인·로그아웃·계정 전환을 알리는 창 이벤트 — 로봇 연결(useRobotStream)이 듣고 "내 로봇"을 다시 찾는다 */
+export const SESSION_EVENT = "sherpy:session";
+
 function set(next: Partial<State>) {
+  const before = state.user?.username ?? null;
+  const wasLoaded = state.loaded; // 첫 확인(로딩)은 바뀜이 아니다 — 매번 재연결하지 않게
   state = { ...state, ...next };
   listeners.forEach((fn) => fn());
+  if (wasLoaded && (state.user?.username ?? null) !== before && typeof window !== "undefined") {
+    window.dispatchEvent(new Event(SESSION_EVENT));
+  }
 }
 
 function readLocal(): SessionUser | null {

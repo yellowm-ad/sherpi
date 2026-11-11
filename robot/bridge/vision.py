@@ -166,9 +166,9 @@ def draw(bgr: np.ndarray, res: dict, p: Params) -> np.ndarray:
     # 박스
     for o in res["objects"]:
         x1, y1, x2, y2 = (int(v * s) for v, s in zip(o["box"], (w, h, w, h)))
-        c = COLOR.get(o["zone"], (160, 160, 160))
+        c = (135, 210, 0) if o.get("ours") else COLOR.get(o["zone"], (160, 160, 160))  # 우리 강아지 = 초록
         cv2.rectangle(img, (x1, y1), (x2, y2), c, 2)
-        cv2.putText(img, f'{o["cls"]} {o["conf"]:.2f}', (x1 + 2, max(12, y1 - 4)),
+        cv2.putText(img, f'{"OURS " if o.get("ours") else ""}{o["cls"]} {o["conf"]:.2f}', (x1 + 2, max(12, y1 - 4)),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.45, c, 1, cv2.LINE_AA)
     # 길 방향 화살표
     hd = res.get("heading") or 0.0
@@ -191,6 +191,8 @@ class Vision:
     def __init__(self, upload: bool = True) -> None:
         self.avoider = Avoider()
         self.upload = upload
+        # 줄 센서 값 {"theta": rad, "L": m} 을 돌려주는 함수 — 릴·AS5600 배선 전엔 None (화면만으로 우리 강아지 고름)
+        self.leash_fn = None
         self.error: str | None = None
         self.last: dict | None = None
         self._frame: np.ndarray | None = None
@@ -286,7 +288,8 @@ class Vision:
                     p = self.avoider.p
                     dets = det(bgr, p)
                     small = cv2.resize(bgr, (160, 90))
-                    res = self.avoider.step(dets, small)
+                    leash = self.leash_fn() if self.leash_fn else None
+                    res = self.avoider.step(dets, small, leash=leash)
                 infer_ms = (time.monotonic() - ti) * 1000
                 frames += 1
                 if time.monotonic() - t0 >= 2:

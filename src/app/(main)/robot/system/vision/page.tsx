@@ -202,7 +202,7 @@ export default function VisionTest() {
                 {r.objects.map((o, i) => (
                   <li key={i} className="flex items-center gap-2 py-1.5">
                     <span className="flex-1 text-body">{o.label}<small className="ml-1 text-[10px] text-muted">{o.cls}</small></span>
-                    <span className="text-[11px] text-muted">{o.zone == null ? "무시" : o.zone === "center" ? "통로 안" : o.zone === "left" ? "왼쪽" : "오른쪽"}</span>
+                    <span className="text-[11px] text-muted">{o.ours ? (o.zone === "center" && o.near >= r.params.stop_near ? "바로 앞 · 멈춤" : "따라가는 중") : o.zone == null ? "무시" : o.zone === "center" ? "통로 안" : o.zone === "left" ? "왼쪽" : "오른쪽"}</span>
                     <span className="tabular w-20 text-right text-[11px] text-muted">{Math.round(o.conf * 100)}% · {Math.round(o.near * 100)}</span>
                   </li>
                 ))}
@@ -246,7 +246,7 @@ export default function VisionTest() {
               ))}
               <div className="mt-2 flex flex-wrap gap-1.5">
                 <button className="chip touch" data-active={p.floor_on} onClick={() => change({ floor_on: !p.floor_on })}>바닥 색 검사 {p.floor_on ? "켬" : "끔"}</button>
-                <button className="chip touch" data-active={p.ignore_dog} onClick={() => change({ ignore_dog: !p.ignore_dog })}>우리 강아지 무시 {p.ignore_dog ? "켬" : "끔"}</button>
+                <button className="chip touch" data-active={p.ignore_dog} onClick={() => change({ ignore_dog: !p.ignore_dog })}>우리 강아지 구분 {p.ignore_dog ? "켬" : "끔"}</button>
               </div>
               <p className="mt-2 text-[10px] text-muted">바닥 색 검사 = 인식 모델이 모르는 기둥·턱·벽을 &apos;바닥이 끊긴 곳&apos;으로 잡아요. 그림자·잔디 경계에 속을 수 있어요.</p>
             </section>

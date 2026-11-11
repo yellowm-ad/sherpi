@@ -11,6 +11,13 @@
   2) 바닥 색 — 로봇 바로 앞 바닥 색을 기준으로, 그 색이 위로 어디까지 이어지는지 열마다 잰다.
      YOLO 가 모르는 물체(기둥·볼라드·화단 턱·벽)도 '바닥이 끊긴 곳'으로 잡는다. 그림자에 속을 수 있어 끌 수 있다.
 
+강아지는 두 종류로 나눈다.
+  - 우리 강아지(한 마리): 줄 방향각 θ 로 화면 위치를 예상해 가장 잘 맞는 강아지. 줄 센서가 없으면
+    직전 프레임의 우리 강아지와 가장 가까운 것, 처음이면 가장 가까이(화면 아래) 있는 것.
+    평소엔 장애물로 안 보지만, 통로 안에서 stop_near 보다 가까우면 '멈춰서 기다림'(옆으로 피하지 않음 —
+    줄로 묶여 있어 피해도 소용없고, 강아지 쪽으로 꺾을 수 있다).
+  - 남의 강아지: 사람과 같은 '움직이는 장애물' — 기다렸다가 안 비키면 피한다.
+
 [안전] 이 판단은 테스트·보조용이다. 모터를 직접 움직이지 않는다 (agent 가 결과만 웹에 보여 준다).
        1차 안전장치는 리드줄 장력 정지(F̂ ≥ 35 N)와 본체 물리 정지 버튼이다.
 
@@ -51,7 +58,7 @@ class Params:
     wait_s: float = 3.0       # 움직이는 물체 앞에서 기다리는 시간 → 그래도 막혀 있으면 피한다
     floor_on: bool = True     # 바닥 색 검사 사용
     floor_tol: float = 30.0   # 바닥 색 허용 차이 (클수록 관대 = 덜 멈춤)
-    ignore_dog: bool = True   # 우리 강아지는 장애물로 보지 않는다 (산책 중 항상 화면에 있음)
+    ignore_dog: bool = True   # 우리 강아지(한 마리)는 멀면 장애물로 안 본다. 바로 앞이면 그래도 멈춘다. 남의 강아지는 늘 장애물
     imgsz: int = 320          # 인식 입력 크기 (작을수록 빠름)
 
     RANGES = {
@@ -92,6 +99,20 @@ class Det:
     y2: float
 
 
+# 카메라 — sherpy_core/params.py 의 camW·camFx·camCx 와 같게 (줄 방향각 θ → 화면 가로 위치)
+CAM_FX_N = 300 / 640
+CAM_CX_N = 324 / 640
+CAM_YAW = 0.026
+OURS_MATCH = 0.22   # θ 로 예상한 위치와 이 이상(화면 폭 비율) 어긋나면 우리 강아지가 아니다
+OURS_TRACK = 0.18   # 줄 센서 없을 때 직전 위치에서 이 이상 튀면 다른 강아지로 본다
+
+
+def x_from_theta(theta: float) -> float:
+    """줄 방향각 θ(rad, 오른쪽 +, 로봇 정면 0) → 화면 가로 위치 0~1 (왜곡은 무시)"""
+    import math
+    return CAM_CX_N + CAM_FX_N * math.tan(max(-1.4, min(1.4, theta - CAM_YAW)))
+
+
 def nearness(y: float, horizon: float) -> float:
     """화면 높이 y(0 위 ~ 1 아래) → 가까움 0(지평선)~1(바로 앞)"""
     return float(min(1.0, max(0.0, (y - horizon) / max(1e-6, 1.0 - horizon))))
@@ -121,8 +142,9 @@ class FloorModel:
         cb = (b - y) * 0.564
         return np.stack([y * 0.35, cr, cb], axis=-1)
 
-    def blocks(self, bgr_small: np.ndarray, p: Params, may_learn: bool) -> list[float]:
-        """bgr_small: 작게 줄인 화면 (예: 160x90). 반환: 띠마다 막힘 가까움 0~1 (0 = 끝까지 바닥)"""
+    def blocks(self, bgr_small: np.ndarray, p: Params, may_learn: bool, skip: Det | None = None) -> list[float]:
+        """bgr_small: 작게 줄인 화면 (예: 160x90). 반환: 띠마다 막힘 가까움 0~1 (0 = 끝까지 바닥)
+        skip: 바닥으로 칠 상자 (우리 강아지 — 몸통 색이 '바닥 끊김'으로 잡히지 않게)"""
         h, w = bgr_small.shape[:2]
         f = self._feat(bgr_small)
         # 기준 = 맨 아래 12% · 가운데 30% 의 중앙값
@@ -133,6 +155,9 @@ class FloorModel:
             self.ref = cur if self.ref is None else self.ref * 0.8 + cur * 0.2
         dist = np.linalg.norm(f - self.ref, axis=-1)
         floor = dist < p.floor_tol
+        if skip is not None:
+            floor[max(0, int(skip.y1 * h)):int(np.ceil(skip.y2 * h)) + 1,
+                  max(0, int(skip.x1 * w)):int(np.ceil(skip.x2 * w))] = True
         top = int(h * p.horizon)
         out: list[float] = []
         for i in range(COLS):
@@ -159,25 +184,56 @@ class Avoider:
     _pending: str = GO
     _pending_n: int = 0
     _blocked_since: float | None = None
+    _ours_x: float | None = None     # 직전 프레임 우리 강아지 가로 위치 (줄 센서 없을 때 따라가기용)
     CONFIRM = 3  # 덜 심각한 쪽으로 내려갈 땐 3번 연속 같아야 바꾼다 (깜빡임 방지). 심각한 쪽은 즉시.
 
-    def step(self, dets: list[Det], bgr_small: np.ndarray | None, now: float | None = None) -> dict:
+    def pick_ours(self, dogs: list[Det], leash: dict | None) -> Det | None:
+        """강아지 여러 마리 중 '우리 강아지' 한 마리. 못 고르면 None (= 보이는 강아지 전부 남의 강아지)."""
+        if not dogs:
+            self._ours_x = None
+            return None
+        cx = lambda d: (d.x1 + d.x2) / 2  # noqa: E731
+        theta = (leash or {}).get("theta")
+        if isinstance(theta, (int, float)) and np.isfinite(theta):
+            want = x_from_theta(float(theta))
+            best = min(dogs, key=lambda d: abs(cx(d) - want))
+            ok = abs(cx(best) - want) <= OURS_MATCH
+        elif self._ours_x is not None:
+            best = min(dogs, key=lambda d: abs(cx(d) - self._ours_x))
+            ok = abs(cx(best) - self._ours_x) <= OURS_TRACK
+            if not ok and len(dogs) == 1:
+                best, ok = dogs[0], True   # 한 마리뿐이면 놓쳤다 다시 잡은 것으로 본다
+        else:
+            best, ok = max(dogs, key=lambda d: d.y2), True  # 처음: 가장 가까운 강아지
+        self._ours_x = cx(best) if ok else None
+        return best if ok else None
+
+    def step(self, dets: list[Det], bgr_small: np.ndarray | None, now: float | None = None,
+             leash: dict | None = None) -> dict:
+        """leash: 줄 센서 값 {"theta": rad, "L": m} — 없으면 None (화면만으로 우리 강아지를 고른다)"""
         p = self.p
         now = time.monotonic() if now is None else now
         objs = []
         zone_block = {"left": 0.0, "center": 0.0, "right": 0.0}
         moving_center = False
+        ours_close = False
         names_center: list[str] = []
 
+        dets = [d for d in dets if d.conf >= p.conf and d.y2 > p.horizon]
+        ours = self.pick_ours([d for d in dets if d.cls == "dog"], leash) if p.ignore_dog else None
+
         for d in dets:
-            if d.conf < p.conf or d.y2 <= p.horizon:
-                continue
-            if p.ignore_dog and d.cls == "dog":
-                objs.append(self._obj(d, None, 0.0))
-                continue
             n = nearness(d.y2, p.horizon)
             hw = corridor_half(n, p.corridor)
             lo, hi = 0.5 - hw, 0.5 + hw
+            if d is ours:
+                in_center = d.x2 > lo and d.x1 < hi
+                if in_center and n >= p.stop_near:
+                    ours_close = True
+                    zone_block["center"] = max(zone_block["center"], n)
+                zone = "center" if in_center else ("left" if d.x2 <= lo else "right")
+                objs.append(self._obj(d, zone, n, ours=True))
+                continue
             # 통로와 겹치면 center, 아니면 왼쪽/오른쪽 옆길 (통로 폭만큼 옆)
             if d.x2 > lo and d.x1 < hi:
                 if n > zone_block["center"]:
@@ -194,7 +250,8 @@ class Avoider:
 
         free: list[float] = []
         if p.floor_on and bgr_small is not None:
-            free = self.floor.blocks(bgr_small, p, may_learn=zone_block["center"] < p.slow_near)
+            free = self.floor.blocks(bgr_small, p, may_learn=zone_block["center"] < p.slow_near and not ours_close,
+                                     skip=ours)
             hw0 = corridor_half(p.slow_near, p.corridor)
             for i, b in enumerate(free):
                 cx = (i + 0.5) / COLS
@@ -204,7 +261,12 @@ class Avoider:
                     if z == "center" and b >= p.slow_near and "바닥이 끊김" not in names_center:
                         names_center.append("바닥이 끊김")
 
-        raw, reason = self._raw(zone_block, moving_center, names_center, now)
+        if ours_close:
+            # 우리 강아지가 바로 앞 — 옆으로 피하지 않고 멈춰서 기다린다 (기다림 시간이 지나도 피하지 않음)
+            self._blocked_since = None
+            raw, reason = WAIT, "우리 강아지가 바로 앞 — 멈춰서 기다려요"
+        else:
+            raw, reason = self._raw(zone_block, moving_center, names_center, now)
         self._settle(raw, reason)
         return {
             "decision": self.decision,
@@ -264,9 +326,9 @@ class Avoider:
         return ((best_i + 0.5) / COLS - 0.5) * 2
 
     @staticmethod
-    def _obj(d: Det, zone: str | None, n: float) -> dict:
+    def _obj(d: Det, zone: str | None, n: float, ours: bool = False) -> dict:
         return {
-            "label": KO.get(d.cls, "물체"), "cls": d.cls[:24], "conf": round(d.conf, 2),
+            "label": "우리 강아지" if ours else KO.get(d.cls, "물체"), "cls": d.cls[:24], "conf": round(d.conf, 2),
             "box": [round(d.x1, 3), round(d.y1, 3), round(d.x2, 3), round(d.y2, 3)],
-            "near": round(n, 2), "zone": zone,  # None = 무시(우리 강아지)
+            "near": round(n, 2), "zone": zone, "ours": ours,
         }

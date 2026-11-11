@@ -55,12 +55,61 @@ av = Avoider()
 wall = [Det("bench", 0.8, 0.0, 0.4, 0.33, 0.95), bench, Det("bench", 0.8, 0.67, 0.4, 1.0, 0.95)]
 check("양옆도 막힘 → 멈춤", run(av, wall, floor_img())["decision"], STOP)
 
-# 5) 우리 강아지는 무시 / 끄면 기다림
+# 5) 우리 강아지 — 멀면 무시, 바로 앞이면 멈춰 기다림(피하지 않음), 남의 강아지는 장애물
 av = Avoider()
-dog = Det("dog", 0.9, 0.4, 0.6, 0.6, 0.95)
-check("우리 강아지 무시 → 계속", run(av, [dog], floor_img())["decision"], GO)
+dog_far = Det("dog", 0.9, 0.45, 0.5, 0.58, 0.62)            # 통로 안이지만 멀다 (가까움 ≈ 0.34)
+check("멀리 있는 우리 강아지 → 계속", run(av, [dog_far], floor_img())["decision"], GO)
+r = run(av, [dog_far], floor_img())
+check("  우리 강아지로 표시", r["objects"][0]["ours"], True)
+
+av = Avoider()
+dog = Det("dog", 0.9, 0.4, 0.6, 0.6, 0.95)                  # 통로 안, 바로 앞
+check("바로 앞 우리 강아지 → 멈춰 기다림", run(av, [dog], floor_img())["decision"], WAIT)
+r = run(av, [dog], floor_img(), t=av.p.wait_s + 5, n=5)
+check("  오래 있어도 옆으로 피하지 않음", r["decision"], WAIT)
+check("  이유에 '우리 강아지'", "우리 강아지" in r["reason"], True)
+
+av = Avoider()
+side_dog = Det("dog", 0.9, 0.0, 0.5, 0.12, 0.97)            # 바로 옆(통로 밖)에서 걷는 중
+check("옆에서 걷는 우리 강아지 → 계속", run(av, [side_dog], floor_img())["decision"], GO)
+
+# 줄 방향각 θ 로 우리 강아지 고르기 — 오른쪽에 우리 강아지, 가운데 바로 앞에 남의 강아지
+av = Avoider()
+ours_r = Det("dog", 0.9, 0.80, 0.5, 0.95, 0.80)
+other = Det("dog", 0.9, 0.42, 0.55, 0.58, 0.95)
+r = run(av, [ours_r, other], floor_img(), n=1)
+check("줄 정보 없으면 가까운 쪽을 우리 강아지로 (가운데)", [o["ours"] for o in r["objects"]], [False, True])
+av = Avoider()
+r = av.step([ours_r, other], floor_img(), now=0.0, leash={"theta": 0.65, "L": 1.5})
+check("θ=오른쪽 → 오른쪽 강아지가 우리 강아지", [o["ours"] for o in r["objects"]], [True, False])
+check("  가운데 남의 강아지 → 기다림(움직이는 장애물)", r["decision"], WAIT)
+r = run(av, [ours_r, other], floor_img(), t=av.p.wait_s + 1, n=3)
+check("  안 비키면 남의 강아지는 피해 감", r["decision"], lambda d: d in (AVOID_LEFT, AVOID_RIGHT, STOP))
+
+av = Avoider()
+r = av.step([other], floor_img(), now=0.0, leash={"theta": -0.7, "L": 2.0})
+check("θ 쪽에 강아지 없음 → 보이는 강아지는 남의 강아지", (r["objects"][0]["ours"], r["decision"]), (False, WAIT))
+
+# 따라가기 — 줄 정보 없이 한 마리를 계속 우리 강아지로
+av = Avoider()
+a = Det("dog", 0.9, 0.10, 0.5, 0.22, 0.70)
+b = Det("dog", 0.9, 0.70, 0.5, 0.82, 0.75)
+av.step([a], floor_img(), now=0)                             # 처음엔 a 한 마리
+r = av.step([Det("dog", 0.9, 0.12, 0.5, 0.24, 0.70), b], floor_img(), now=0.1)
+check("다른 강아지가 나타나도 원래 강아지를 계속 우리 강아지로", [o["ours"] for o in r["objects"]], [True, False])
+
+# 바닥 색 검사가 우리 강아지 몸통을 '바닥 끊김'으로 잡지 않음
+av = Avoider()
+run(av, [], floor_img(), n=3)
+img = floor_img()
+img[38:56, 65:99] = (30, 80, 160)                            # 강아지 몸통 색 (상자와 같은 자리)
+r = run(av, [Det("dog", 0.9, 0.40, 0.42, 0.62, 0.62)], img, t=1)
+check("우리 강아지 몸통은 바닥 끊김 아님 → 계속", r["decision"], GO)
+
+# 끄면 강아지도 전부 장애물 (옛 동작)
+av = Avoider()
 av.p.update({"ignore_dog": False})
-check("강아지 무시 끔 → 기다림", run(av, [dog], floor_img(), t=10)["decision"], WAIT)
+check("우리 강아지 구분 끔 → 기다림", run(av, [dog_far.__class__("dog", 0.9, 0.4, 0.6, 0.6, 0.95)], floor_img(), t=10)["decision"], WAIT)
 
 # 6) 조금 먼 물체 → 감속
 av = Avoider()

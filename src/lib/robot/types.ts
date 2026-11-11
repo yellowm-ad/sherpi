@@ -117,6 +117,7 @@ export const VisionResultSchema = z.object({
     label: z.string().max(16), cls: z.string().max(24), conf: n01,
     box: z.array(z.number().min(-0.1).max(1.1)).length(4),
     near: n01, zone: z.enum(["left", "center", "right"]).nullable(),
+    ours: z.boolean().optional(), // 우리 강아지 (멀면 무시, 바로 앞이면 멈춰 기다림)
   })).max(30),
   waitLeft: z.number().min(0).max(60).nullable(),
   fps: z.number().min(0).max(200),

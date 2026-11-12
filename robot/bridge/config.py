@@ -30,7 +30,11 @@ I2C_ADDRESS_2 = 0x41    # 예비 보드 — 쓸 때만
 PWM_FREQ_HZ   = 50      # RC 표준
 CH_STEER      = 0       # 조향 서보 (35kg)
 CH_THROTTLE   = 1       # ESC 스로틀
-CH_GEAR       = 2       # 변속 서보 (2단 기어)
+CH_GEAR       = 2       # 변속 서보 (2단 기어) — 기본은 연결하지 않음
+# 변속 서보는 개입하지 않는 설계(2026-11-12): 산책은 저속단만 쓰므로 조종기로 저속단에 둔 뒤
+# 변속 서보 선은 PCA9685 에 꽂지 않는다(기어 빠지면 변속 링크를 저속 위치에 케이블타이로 고정).
+# 나중에 변속 서보를 CH2 에 연결했다면 robot/.env 에 SHERPY_GEAR_SERVO=on.
+GEAR_SERVO    = os.environ.get("SHERPY_GEAR_SERVO", "off") == "on"
 
 PWM_MIN_US    = 1000
 PWM_NEUTRAL_US= 1500

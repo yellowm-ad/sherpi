@@ -52,12 +52,12 @@
 
 ```
 3S LiPo ─ XT60 ─┬─→ [80A FOC ESC] ─→ 모터
-                │        └─ BEC 6V ─┬─→ 조향 서보 (PCA9685 CH0)
-                │                    └─→ 변속 서보 (PCA9685 CH2)
+                │        └─ BEC 6V ───→ 조향 서보 (PCA9685 CH0)
+                │           (변속 서보는 미연결 — 조종기로 저속단에 두고 고정, SHERPY_GEAR_SERVO=off)
                 └─→ [AC-TL80 5V 5A] ─ 22AWG ─ 5A 퓨즈 ─┬─ 1000µF ─→ Pi 5 핀2(5V) / 핀6(GND)
 
 Pi 5
- ├─ I2C ──┬─→ [PCA9685 0x40] ─┬─ CH0 조향 / CH1 ESC 스로틀 / CH2 변속
+ ├─ I2C ──┬─→ [PCA9685 0x40] ─┬─ CH0 조향 / CH1 ESC 스로틀 / (CH2 비움)
  │        └─→ [AS5600 0x36]  (Grove → 변환케이블)
  ├─ GPIO 5/6 ─→ [HX711] ─→ [SBA-50L]
  ├─ GPIO 20/21, 19/26 ─→ [TM1637 RED], [TM1637 BLUE]

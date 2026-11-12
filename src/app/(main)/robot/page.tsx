@@ -141,7 +141,7 @@ export default function RobotHome() {
 
       {/* ── 카메라 + 주행 요약 ── */}
       <section className="mt-3 grid grid-cols-[1.25fr_1fr] gap-3">
-        <Link href="/robot/camera" className="press relative aspect-[4/3] overflow-hidden rounded-2xl bg-sherpy-900">
+        <Link href="/robot/camera" className="press relative aspect-video self-start overflow-hidden rounded-2xl bg-sherpy-900">
           {stream ? (
             <>
               <RobotVideo base={stream} />

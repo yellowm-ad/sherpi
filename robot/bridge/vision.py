@@ -51,6 +51,10 @@ MARK_KINDS = {"missed": "놓침", "false_stop": "괜히 멈춤", "good": "잘함
 # 화면 뒤집힘 — mediamtx.yml 의 rpiCameraHFlip/VFlip 과 같게 (.env 에 SHERPY_CAM_HFLIP=1)
 HFLIP = os.environ.get("SHERPY_CAM_HFLIP") == "1"
 VFLIP = os.environ.get("SHERPY_CAM_VFLIP") == "1"
+# 센서 모드 고정 — 작은 출력(640x360)을 달라고 하면 libcamera 가 1536x864 모드를 고르는데,
+# 이 모드는 센서 가운데 3072x1728 만 잘라 써서 화각이 약 2/3 로 좁아진다.
+# 2304x1296 모드는 센서 전체(4608x2592)를 2x2 묶어 읽어 Wide 렌즈 화각을 전부 쓴다. mediamtx.yml 의 rpiCameraMode 와 같게.
+CAM_MODE = os.environ.get("SHERPY_CAM_MODE", "2304:1296:10:P")
 
 
 # ── 카메라 ─────────────────────────────────────
@@ -60,6 +64,8 @@ class PiCamera:
     def __init__(self) -> None:
         argv = ["rpicam-vid", "-t", "0", "-n", "--codec", "yuv420",
                 "--width", str(CAM_W), "--height", str(CAM_H), "--framerate", str(CAM_FPS), "-o", "-"]
+        if CAM_MODE:
+            argv += ["--mode", CAM_MODE]
         if HFLIP:
             argv.append("--hflip")
         if VFLIP:

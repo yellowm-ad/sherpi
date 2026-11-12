@@ -40,7 +40,8 @@ class Motor:
             try:
                 from hal_pca9685 import PCA9685HAL  # robot/ 폴더 (agent.py 가 경로에 넣어 둠)
                 self.hal = PCA9685HAL()            # 켜자마자 중립(정지)
-                self.hal.set_gear(low=True)        # 산책 속도는 저속단
+                if C.GEAR_SERVO:                   # 기본은 변속 서보 미연결(저속단 기계 고정)
+                    self.hal.set_gear(low=True)    # 산책 속도는 저속단
                 self.live = True
             except Exception as e:  # noqa: BLE001 — 드라이버가 없으면 시험 모드로라도 살아 있어야 한다
                 self.error = f"모터 드라이버 연결 실패 → 시험 모드: {e}"[:200]

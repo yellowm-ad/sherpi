@@ -56,7 +56,7 @@ export default function RobotVideo({ base: src, path = "sherpy" }: { base: strin
 
   return (
     <div className="absolute inset-0">
-      <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
+      <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-contain" />
       {status !== "playing" && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-white">
           {status === "connecting" ? (

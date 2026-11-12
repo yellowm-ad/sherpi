@@ -27,11 +27,13 @@ export default function CameraPage() {
   return (
     <div className="fixed inset-0 z-[45] mx-auto max-w-[480px] bg-black text-white">
       {base ? (
-        <>
+        // 영상(16:9)을 자르지 않고 가로 전체로 보여 준다 — 세로 화면에서 object-cover 로 꽉 채우면
+        // 양옆이 잘려 광각 화면이 좁아 보이고, 박스 위치(가로 = 카메라 640px 가정)도 어긋난다.
+        <div className="absolute inset-x-0 top-1/2 aspect-video -translate-y-1/2">
           <RobotVideo base={base} />
           {/* 실제 영상 위에 검출 박스·방향선 — 텔레메트리 θ̂·d̂ 를 카메라 모델로 역투영 */}
           <PovCamera scenery={false} theta={null} d={null} thetaEst={th} dEst={d} track={track} />
-        </>
+        </div>
       ) : (
         <PovCamera theta={th} d={d} thetaEst={th} dEst={d} track={track} speed={latest?.speedCmd ?? 0} steer={latest?.steerCmd ?? 0} />
       )}

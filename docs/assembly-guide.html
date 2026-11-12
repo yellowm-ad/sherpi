@@ -1,0 +1,703 @@
+<title>셰르피 제어부 조립 가이드</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: 작업대 매뉴얼 — 단계 칩 내비 + 단계별 카드(배선도 · 순서 · 주의 · 확인) */
+:root{
+  --bg:#eef0ec; --panel:#ffffff; --ink:#1b201d; --muted:#5a645e; --line:#d3d8d2;
+  --accent:#0d7a5c; --accent-soft:#dcefe7;
+  --danger:#c0262d; --danger-soft:#fbe5e4; --warn:#a85a06; --warn-soft:#fbefd9; --info:#2d64b3; --info-soft:#e3ecf8;
+  --pcb:#1f6b4c; --pcb-ink:#e8f3ec; --bb:#fbfbf7; --bb-line:#cfd3cc; --hole:#8d948e; --mod:#f6f7f4;
+  --w-gnd:#25292a; --w-edge:rgba(20,24,22,.55); --code:#f3f4f1;
+  --f-body:"IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#131514; --panel:#1b1e1c; --ink:#e7ebe8; --muted:#9aa49e; --line:#2e3431;
+  --accent:#43c39a; --accent-soft:#17332a;
+  --danger:#ff6b6b; --danger-soft:#3a1d1e; --warn:#f0a447; --warn-soft:#352816; --info:#7fb0ff; --info-soft:#1a2638;
+  --pcb:#1d4f3a; --pcb-ink:#d6eadf; --bb:#232725; --bb-line:#3a403c; --hole:#77807a; --mod:#222624;
+  --w-gnd:#0c0d0d; --w-edge:rgba(225,232,228,.55); --code:#151816; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#131514; --panel:#1b1e1c; --ink:#e7ebe8; --muted:#9aa49e; --line:#2e3431;
+  --accent:#43c39a; --accent-soft:#17332a;
+  --danger:#ff6b6b; --danger-soft:#3a1d1e; --warn:#f0a447; --warn-soft:#352816; --info:#7fb0ff; --info-soft:#1a2638;
+  --pcb:#1d4f3a; --pcb-ink:#d6eadf; --bb:#232725; --bb-line:#3a403c; --hole:#77807a; --mod:#222624;
+  --w-gnd:#0c0d0d; --w-edge:rgba(225,232,228,.55); --code:#151816; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.65;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:0 64px}
+.wrap{max-width:1060px;margin:0 auto}
+h1,h2,h3{text-wrap:balance;line-height:1.3;margin:0}
+code,.mono{font-family:var(--f-mono);font-size:.88em}
+a{color:var(--accent)}
+
+header.top{padding-block:36px 20px;display:grid;gap:10px}
+.eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.08em;color:var(--accent);text-transform:uppercase}
+h1{font-size:clamp(26px,4vw,36px);font-weight:700}
+.lede{color:var(--muted);max-width:68ch;margin:0}
+
+.rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin-block:18px 8px}
+.rule{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start}
+.rule b{display:block;font-size:14px}
+.rule span{color:var(--muted);font-size:13.5px}
+.rule .k{font-family:var(--f-mono);font-weight:600;color:var(--accent);font-size:13px;padding-top:1px}
+
+nav.chips{position:sticky;top:env(safe-area-inset-top, 0px);z-index:5;background:var(--bg);padding-block:10px;margin-block:18px 6px;
+  display:flex;gap:6px;overflow-x:auto;scrollbar-width:thin;border-bottom:1px solid var(--line)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top, 0px);z-index:10;background:var(--bg)}
+nav.chips a{flex:none;text-decoration:none;color:var(--ink);font-size:13px;padding:6px 11px;border:1px solid var(--line);border-radius:999px;background:var(--panel);white-space:nowrap}
+nav.chips a .n{font-family:var(--f-mono);color:var(--muted);margin-right:5px}
+nav.chips a:hover,nav.chips a:focus-visible{border-color:var(--accent);outline:none}
+
+section.block{margin-top:34px}
+section.block > h2{font-size:21px;margin-bottom:10px}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:560px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;color:var(--muted);font-weight:500;letter-spacing:.03em}
+tr:last-child td{border-bottom:0}
+td .mono{white-space:nowrap}
+.pill{display:inline-block;font-size:12px;padding:1px 8px;border-radius:999px;white-space:nowrap;font-weight:500}
+.p-ok{background:var(--accent-soft);color:var(--accent)}
+.p-solder{background:var(--warn-soft);color:var(--warn)}
+.p-buy{background:var(--danger-soft);color:var(--danger)}
+.p-info{background:var(--info-soft);color:var(--info)}
+.sw{display:inline-block;width:22px;height:8px;border-radius:4px;vertical-align:middle;margin-right:6px;border:1px solid var(--w-edge)}
+
+article.stage{margin-top:28px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;scroll-margin-top:70px}
+.stage-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 12px}
+.stage-no{font-family:var(--f-mono);font-weight:600;color:var(--accent);font-size:14px}
+.stage-head h3{font-size:20px}
+.goal{color:var(--muted);margin:6px 0 0;max-width:72ch}
+.fig{margin-top:16px;border:1px solid var(--line);border-radius:10px;background:var(--bg);overflow:hidden}
+.fig-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:8px 10px;border-bottom:1px solid var(--line);background:var(--panel)}
+.fig-bar .hint{font-size:12.5px;color:var(--muted)}
+button.play{font:inherit;font-size:13px;font-weight:500;border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:8px;padding:5px 12px;cursor:pointer;min-height:34px}
+button.play:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.svgbox{overflow-x:auto}
+.svgbox svg{display:block;width:100%;min-width:680px;height:auto}
+.cap{margin:0;padding:9px 12px;border-top:1px solid var(--line);font-size:14px;min-height:42px;background:var(--panel)}
+.cap b{color:var(--accent)}
+
+.cols{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:18px;margin-top:16px}
+@media (max-width:820px){.cols{grid-template-columns:1fr}}
+.cols h4{margin:0 0 8px;font-size:13px;color:var(--muted);font-weight:500;letter-spacing:.04em}
+ol.steps{list-style:none;margin:0;padding:0;display:grid;gap:4px;counter-reset:s}
+ol.steps li{counter-increment:s;display:grid;grid-template-columns:28px 1fr;gap:8px;padding:7px 8px;border-radius:8px;cursor:pointer;border:1px solid transparent;font-size:14px}
+ol.steps li::before{content:counter(s);font-family:var(--f-mono);font-size:12px;font-weight:600;color:var(--muted);text-align:right;padding-top:2px}
+ol.steps li:hover{background:var(--bg)}
+ol.steps li.now{background:var(--accent-soft);border-color:var(--accent)}
+ol.steps li.now::before{color:var(--accent)}
+ol.steps li.note{color:var(--ink)}
+ol.steps li.note .tag{font-size:11px;font-weight:600;color:var(--warn);margin-right:4px}
+ol.steps li:focus-visible{outline:2px solid var(--accent)}
+ul.plain{margin:0;padding-left:18px;display:grid;gap:4px;font-size:14px}
+
+.cautions{display:grid;gap:8px}
+.cau{border-radius:9px;padding:9px 12px;font-size:14px;border:1px solid transparent}
+.cau .lv{font-size:11.5px;font-weight:700;letter-spacing:.04em;display:block;margin-bottom:1px}
+.cau.danger{background:var(--danger-soft);border-color:color-mix(in srgb,var(--danger) 30%,transparent)} .cau.danger .lv{color:var(--danger)}
+.cau.warn{background:var(--warn-soft);border-color:color-mix(in srgb,var(--warn) 30%,transparent)} .cau.warn .lv{color:var(--warn)}
+.cau.info{background:var(--info-soft);border-color:color-mix(in srgb,var(--info) 25%,transparent)} .cau.info .lv{color:var(--info)}
+
+.check{margin-top:16px}
+.check h4{margin:0 0 6px;font-size:13px;color:var(--muted);font-weight:500;letter-spacing:.04em}
+.codebox{position:relative;background:var(--code);border:1px solid var(--line);border-radius:9px}
+.codebox pre{margin:0;padding:12px 14px;overflow-x:auto;font-family:var(--f-mono);font-size:13px;line-height:1.55}
+.codebox button{position:absolute;top:6px;right:6px;font:inherit;font-size:12px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:6px;padding:2px 9px;cursor:pointer}
+.pass{margin-top:6px;font-size:13.5px;color:var(--muted)}
+.pass b{color:var(--accent)}
+
+/* SVG */
+.wire path{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.wire .edge{stroke:var(--w-edge);stroke-width:7}
+.wire .core{stroke-width:4.2}
+.wire .end{stroke:var(--w-edge);stroke-width:1.5}
+.wire.ctx{opacity:.22}
+svg.focus .wire:not(.ctx):not(.on){opacity:.15}
+svg.focus .wire.on .core{stroke-width:5}
+.lay svg{min-width:640px}
+.lay svg + svg{border-top:1px dashed var(--line)}
+svg.zf [data-z]{opacity:.2;transition:opacity .2s}
+svg.zf [data-z].on{opacity:1}
+ol.zl li{grid-template-columns:1fr}
+ol.zl li::before{content:none}
+.t-s{font-family:var(--f-body);font-size:10.5px;fill:var(--ink)}
+.t-m{font-family:var(--f-mono);font-size:10px;fill:var(--ink)}
+.t-mut{fill:var(--muted)}
+.t-dan{fill:var(--danger);font-weight:700}
+.halo{paint-order:stroke;stroke:var(--bg);stroke-width:3.5px;stroke-linejoin:round}
+.halo-m{paint-order:stroke;stroke:var(--mod);stroke-width:3px}
+@media (prefers-reduced-motion: reduce){*{scroll-behavior:auto!important}}
+footer{margin-top:40px;color:var(--muted);font-size:13px}
+</style>
+
+<div class="wrap">
+<header class="top">
+  <div class="eyebrow">SHERPY · Raspberry Pi 5 · 납땜 없이 시작하는 순서</div>
+  <h1>셰르피 제어부 조립 가이드</h1>
+  <p class="lede">브레드보드 위에 제어부를 꾸미고 차체에 올리기까지의 순서입니다. 핀 번호는 저장소의 <code>robot/bridge/config.py</code> 배정과 같습니다. 단계마다 배선도의 <b>▶ 연결 순서 재생</b>을 누르면 선이 꽂히는 순서대로 그려지고, 오른쪽 목록의 줄을 누르면 그 선 하나만 강조됩니다.</p>
+  <div class="rules" id="rules"></div>
+</header>
+
+<nav class="chips" id="chips" aria-label="단계 바로가기"></nav>
+
+<section class="block" id="parts">
+  <h2>부품 상태 — 사진 13장 기준</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>부품</th><th>상태</th><th>메모</th></tr></thead>
+    <tbody>
+      <tr><td>Raspberry Pi 5 + 타워 쿨러</td><td><span class="pill p-ok">바로 사용</span></td><td>팬은 FAN 단자에 연결된 상태. GPIO 40핀 접근 가능.</td></tr>
+      <tr><td>브레드보드 830홀 ×2</td><td><span class="pill p-ok">바로 사용</span></td><td>전원 레일이 <b>가운데(30열 근처)에서 끊김</b> — 2단계에서 점퍼로 잇기.</td></tr>
+      <tr><td>점퍼 F/F · M/M 40P, Grove↔암 점퍼</td><td><span class="pill p-ok">바로 사용</span></td><td>파이 핀(수) → 브레드보드(구멍)는 <b>M/F</b>가 필요. 없으면 F/F 끝에 M/M을 이어 대신 씀.</td></tr>
+      <tr><td>Grove AS5600 (12-bit, v1.0)</td><td><span class="pill p-ok">바로 사용</span></td><td>Grove 단자 + DIR 스위치. 자석은 <b>지름 방향</b>이어야 함.</td></tr>
+      <tr><td>PCA9685 (SunFounder) ×2</td><td><span class="pill p-ok">바로 사용</span></td><td>둘 다 주소 0x40 → <b>한 장만</b> 연결, 한 장은 예비.</td></tr>
+      <tr><td>TM1637 4자리 표시기</td><td><span class="pill p-info">개수 확인</span></td><td>사진엔 1개. 코드는 RED(장력)·BLUE(줄 길이) 2개 기준.</td></tr>
+      <tr><td>SparkFun HX711</td><td><span class="pill p-solder">납땜 필요</span></td><td>핀 헤더 미장착. 기본 10회/초(RATE 점퍼 닫힘).</td></tr>
+      <tr><td>CAS SBA-50L 로드셀</td><td><span class="pill p-solder">납땜 필요</span></td><td>50kgf · 3.0mV/V. 빨강 E+, 검정 E−, 초록 신호+, 흰 신호−, 투명 실드.</td></tr>
+      <tr><td>NEO-6M GPS (GPS6MV2)</td><td><span class="pill p-solder">납땜 필요</span></td><td>VCC·RX·TX·GND 구멍에 헤더 없음. 패치 안테나는 u.FL.</td></tr>
+      <tr><td>FULREE 12/24V→5V 5A 컨버터</td><td><span class="pill p-ok">바로 사용</span></td><td>입력 빨강/검정, 출력 <b>노랑(+)</b>/검정. 선 연결은 레버 커넥터로.</td></tr>
+      <tr><td>CNHL 3S 5300mAh ×4</td><td><span class="pill p-ok">바로 사용</span></td><td>XT60. 9.9V(셀당 3.3V) 아래로 쓰지 않기.</td></tr>
+      <tr><td>1% 금속피막 저항 키트</td><td><span class="pill p-info">지금은 불필요</span></td><td>이 구성에선 내부 풀업을 씀.</td></tr>
+      <tr><td>E-stop 버튼 (NO 접점, 나사 단자)</td><td><span class="pill p-buy">구매</span></td><td>사진에 없음. 6단계 전에 필요.</td></tr>
+      <tr><td>레버 커넥터(WAGO 221 등) · 인라인 퓨즈홀더+5A 퓨즈 · XT60 Y케이블 · XT60 피그테일 · USB-C(수)↔나사단자 어댑터</td><td><span class="pill p-buy">구매</span></td><td>납땜 없이 차량 전원(10단계)을 꾸미는 재료.</td></tr>
+      <tr><td>멀티미터 · LiPo 안전백 · 마스킹테이프</td><td><span class="pill p-buy">준비</span></td><td>측정·충전·선 라벨용.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="block" id="pinmap">
+  <h2>핀 배치 한눈에 (물리 핀 번호 · BCM)</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>장치</th><th>장치 핀</th><th>연결 위치</th><th>선 색(권장)</th></tr></thead>
+    <tbody id="pintable"></tbody>
+  </table></div>
+  <p class="pass">파이 5에서 <code>pinout</code> 명령을 치면 화면에 핀 그림이 나옵니다. 1번 핀은 <b>USB 포트 반대쪽 끝, 안쪽 줄</b>이고, 보드 가장자리 쪽 줄이 짝수(2번 = 5V)입니다.</p>
+</section>
+
+<div id="stages"></div>
+
+<footer>
+  셰르피 · 2026-11-12 작성. 기준 문서: <code>docs/ROBOT_BRIDGE.md</code>, <code>robot/bridge/config.py</code>. 로드셀 선 색은 CAS SBA 데이터시트, HX711 RATE 점퍼는 SparkFun 회로도 기준입니다. ESC(MJX H8P)의 서보 전원 전압은 공개 자료로 확인되지 않아 9단계에서 직접 측정합니다.
+</footer>
+</div>
+
+<script>
+(function(){
+/* ───────── 색 ───────── */
+const COL={v5:'#e0393b',v3:'#f08a1b',gnd:'var(--w-gnd)',sda:'#2f7de1',scl:'#e2b616',wht:'#f4f4f1',red:'#e0393b',yel:'#e2b616',grn:'#22a35a',pur:'#8b5cf6',shd:'#b7c0bb'};
+const CNAME={v5:'빨강 · 5V',v3:'주황 · 3.3V',gnd:'검정 · GND',sda:'파랑 · SDA',scl:'노랑 · SCL',wht:'흰색',red:'빨강',yel:'노랑',grn:'초록',pur:'보라',shd:'투명(실드)'};
+
+/* ───────── 파이 헤더 ───────── */
+const PIN={1:'3.3V',2:'5V',3:'SDA·GPIO2',4:'5V',5:'SCL·GPIO3',6:'GND',8:'TXD·GPIO14',9:'GND',10:'RXD·GPIO15',11:'GPIO17',14:'GND',29:'GPIO5',31:'GPIO6',35:'GPIO19',37:'GPIO26',38:'GPIO20',40:'GPIO21'};
+const pinXY=p=>({x:p%2?84:106,y:30+Math.floor((p-1)/2)*15.5,odd:!!(p%2)});
+const pinFill=p=>{const n=PIN[p]||'';if(n==='5V')return COL.v5;if(n==='3.3V')return COL.v3;if(n==='GND')return 'var(--w-gnd)';return '#c9b98a'};
+/* ───────── 브레드보드 ───────── */
+const BB={x0:300,x1:520,y0:20,y1:330,r3:42,rg1:62,r5:292,rg2:312,sda:150,scl:180};
+
+/* ───────── 공통 배선 (2단계 허브) ───────── */
+const HUB=[
+ {f:'bb:r3:400',t:'bb:r3:424',c:'v3',arc:1,s:'브레드보드만: 위쪽 + 레일 끊긴 곳을 짧은 점퍼로 잇기 (3.3V 레일 이어 붙이기)'},
+ {f:'bb:rg1:400',t:'bb:rg1:424',c:'gnd',arc:1,s:'브레드보드만: 위쪽 − 레일 끊긴 곳도 잇기'},
+ {f:'bb:rg1:508',t:'bb:rg2:508',c:'gnd',lane:508,s:'브레드보드만: 위쪽 − 레일과 아래쪽 − 레일을 이어 GND 하나로 만들기'},
+ {f:'pi:6',t:'bb:rg1:328',c:'gnd',s:'Pi <b>6번 핀(GND)</b> → 위쪽 − 레일 (검정, 항상 GND 먼저)'},
+ {f:'pi:3',t:'bb:sda:322',c:'sda',lane:200,s:'Pi <b>3번 핀(SDA)</b> → SDA 줄 (파랑)'},
+ {f:'pi:5',t:'bb:scl:322',c:'scl',lane:212,s:'Pi <b>5번 핀(SCL)</b> → SCL 줄 (노랑)'},
+ {f:'pi:1',t:'bb:r3:316',c:'v3',s:'Pi <b>1번 핀(3.3V)</b> → 위쪽 + 레일 (주황, 전원은 마지막)'}
+];
+const V5=[
+ {f:'bb:r5:400',t:'bb:r5:424',c:'v5',arc:1,s:'브레드보드만: 아래쪽 + 레일 끊긴 곳 잇기 (5V 레일)'},
+ {f:'pi:4',t:'bb:r5:316',c:'v5',lane:230,s:'Pi <b>4번 핀(5V)</b> → 아래쪽 + 레일 (빨강) — 5V 레일은 이때 처음 살아남'}
+];
+
+/* ───────── 단계 데이터 ───────── */
+const STAGES=[
+{id:'s0',no:'0',title:'작업대 준비',tag:['p-ok','준비'],
+ goal:'모든 단계에 공통으로 지킬 순서를 익히고 도구를 갖춥니다. 선을 꽂는 시간보다 확인하는 시간이 더 깁니다.',
+ list:['멀티미터 — 전압(V)과 통전(삐 소리) 모드를 쓸 줄 알면 충분합니다.','마스킹테이프 + 네임펜 — 브레드보드 레일에 "3.3V", "5V", "GND"를 적어 붙입니다.','휴대폰 — 단계가 끝날 때마다 위에서 사진 1장. 문제가 생기면 사진으로 되짚습니다.','바퀴를 띄울 받침대(상자) — 9단계부터 필수.','LiPo 안전백 — 충전·보관용.','정전기: 작업 전 금속 책상다리 등을 한 번 만져 몸의 정전기를 빼기.'],
+ cautions:[['danger','선을 꽂거나 뺄 때는 항상 파이를 끄고(<code>sudo poweroff</code> → 초록 LED 꺼짐 → USB-C 분리) 배터리도 뽑은 상태여야 합니다. 켜진 채로 꽂다 핀끼리 스치면 그 순간 파이가 고장 날 수 있습니다.'],['warn','한 번에 한 단계만. 단계가 끝나면 아래 "확인" 명령이 통과해야 다음 단계로 넘어갑니다. 두 단계를 몰아서 하면 문제가 어디서 생겼는지 모릅니다.'],['info','전원을 넣은 뒤 10초 동안 손등으로 모듈들을 살짝 대 보세요. 뜨겁거나 타는 냄새가 나면 바로 전원을 뽑습니다.']]},
+
+{id:'s1',no:'1',title:'파이 단독 전원·설정',tag:['p-ok','납땜 없음'],
+ goal:'아무것도 꽂지 않은 상태에서 파이 전원과 I2C·UART 설정부터 끝냅니다.',
+ steps:[{n:'정품 27W(5V 5A) USB-C 어댑터로 전원 연결 — 폰 충전기는 인식을 돌리면 전압이 떨어져 재부팅됩니다(11-11 확인).'},{n:'아래 명령으로 전압 상태 0x0 확인'},{n:'I2C 켜기 · UART0 켜기 · i2c-tools 설치'},{n:'재부팅 후 다시 접속'}],
+ cautions:[['warn','이 단계에서는 GPIO 핀에 아무것도 꽂지 않습니다.'],['info','파이 5는 <code>/dev/serial0</code>이 아니라 <code>/dev/ttyAMA0</code>가 GPIO 14/15번 UART입니다. 그래서 <code>dtparam=uart0=on</code>을 씁니다.']],
+ check:`vcgencmd get_throttled                 # 0x0 이어야 정상
+sudo raspi-config nonint do_i2c 0       # I2C 켜기
+echo 'dtparam=uart0=on' | sudo tee -a /boot/firmware/config.txt
+sudo apt install -y i2c-tools
+sudo reboot`,
+ pass:'<b>통과:</b> 재부팅 후 <code>ls /dev/i2c-1 /dev/ttyAMA0</code> 두 개가 모두 보이면 됩니다.'},
+
+{id:'s2',no:'2',title:'브레드보드 허브 (전원 레일 · I2C 줄)',tag:['p-ok','납땜 없음'],
+ goal:'여러 모듈이 같이 쓰는 3.3V · GND · SDA · SCL을 브레드보드 한 곳에 모읍니다. 이후 모든 모듈은 여기에 꽂습니다.',
+ fig:{pi:1,bb:1,wires:HUB},
+ pre:[{n:'멀티미터 통전 모드로 레일 왼쪽 끝과 오른쪽 끝을 찍어 보기 — 삐 소리가 안 나면 가운데가 끊긴 보드입니다(사진상 끊김).'},{n:'테이프 라벨: 위 + 레일 "3.3V", 위·아래 − 레일 "GND", 아래 + 레일 "5V (7단계까지 비움)".'},{n:'SDA 줄 = 10열 a–e, SCL 줄 = 12열 a–e처럼 세로 5칸 한 줄을 정해 테이프로 표시.'}],
+ cautions:[['danger','파이 <b>2·4번 핀은 5V</b>, <b>1번 핀은 3.3V</b>입니다. 이 단계에서 5V 핀에는 아무것도 꽂지 않습니다. 5V가 3.3V 레일로 들어가면 거기 꽂힌 모듈과 파이 신호 핀이 같이 망가집니다.'],['warn','브레드보드의 가운데 홈을 사이에 둔 a–e와 f–j는 서로 연결되지 않습니다. SDA·SCL 줄은 같은 쪽 5칸 안에서만 씁니다.'],['info','파이 핀(수) → 브레드보드는 M/F 점퍼. 없으면 F/F 점퍼의 한쪽 끝에 M/M 점퍼를 꽂아 늘려 씁니다.']],
+ check:`pinout                 # 화면 핀 그림으로 1·3·5·6번 위치 다시 확인
+# 전원 켠 뒤 멀티미터: 3.3V 레일 ↔ GND 레일 = 3.3V 근처
+i2cdetect -y 1         # 아직 장치가 없으니 전부 -- 이면 정상`,
+ pass:'<b>통과:</b> 3.3V 레일이 3.2–3.4V, 파이가 정상 부팅.'},
+
+{id:'s3',no:'3',title:'줄 길이 엔코더 AS5600',tag:['p-ok','납땜 없음'],
+ goal:'릴 회전각을 읽는 AS5600을 I2C 허브에 연결하고, 자석이 제대로 읽히는지 확인합니다.',
+ fig:{pi:1,bb:1,ctx:HUB,mods:[{id:'as',x:610,y:40,w:150,t:'Grove AS5600',pins:[{n:'GND',s:'L'},{n:'VCC',s:'L'},{n:'SDA',s:'L'},{n:'SCL',s:'L'}]}],
+  wires:[
+   {f:'m:as.GND',t:'bb:rg1:496',c:'gnd',lane:496,s:'AS5600 <b>GND(검정)</b> → GND 레일'},
+   {f:'m:as.SDA',t:'bb:sda:346',c:'wht',lane:456,s:'AS5600 <b>SDA(흰색)</b> → SDA 줄'},
+   {f:'m:as.SCL',t:'bb:scl:346',c:'yel',lane:470,s:'AS5600 <b>SCL(노랑)</b> → SCL 줄'},
+   {f:'m:as.VCC',t:'bb:r3:484',c:'red',lane:484,s:'AS5600 <b>VCC(빨강)</b> → <b>3.3V</b> 레일 (5V 아님!)'}]},
+ pre:[{n:'Grove 케이블을 AS5600에 꽂고, 반대쪽 암 단자 4개에 M/M 점퍼를 하나씩 끼워 브레드보드용으로 늘리기.'}],
+ post:[{n:'자석을 센서 칩 정중앙 위 1–3mm에 두고 손으로 돌리며 아래 확인 스크립트 실행.'}],
+ cautions:[['danger','VCC는 반드시 3.3V. 이 보드는 SDA·SCL을 VCC 전압으로 끌어올리는 저항이 달려 있어, 5V에 꽂으면 파이 3·5번 핀에 5V가 들어갑니다.'],['warn','자석은 <b>지름 방향</b> 자화여야 합니다. 원통 자석을 쌓아 붙인 모양(축 방향)이면 돌려도 각도가 거의 안 변합니다. 아래 스크립트에서 "자석감지"가 뜨고 값이 0→4095 한 바퀴 변하면 맞는 자석입니다.'],['info','DIR 스위치는 회전 방향만 바꿉니다. 릴이 풀릴 때 값이 커지는 쪽으로 두고, 나중에 코드에서도 뒤집을 수 있습니다. 쇠나사는 자석 가까이 두지 않습니다.']],
+ check:`i2cdetect -y 1        # 36 이 보여야 정상
+python3 - <<'EOF'
+from smbus2 import SMBus; import time
+with SMBus(1) as b:
+    for _ in range(20):
+        st = b.read_byte_data(0x36, 0x0B)            # STATUS
+        hi, lo = b.read_i2c_block_data(0x36, 0x0C, 2) # RAW ANGLE
+        print('자석감지' if st & 0x20 else '자석없음',
+              '약함' if st & 0x10 else '', '강함' if st & 0x08 else '',
+              ((hi & 0x0F) << 8) | lo)
+        time.sleep(0.3)
+EOF`,
+ pass:'<b>통과:</b> 36 표시 + "자석감지" + 돌릴 때 0–4095 값 변화. "약함"이면 더 가까이, "강함"이면 더 멀리.'},
+
+{id:'s4',no:'4',title:'PWM 드라이버 PCA9685 (신호 쪽만)',tag:['p-ok','납땜 없음'],
+ goal:'모터·서보에 신호를 줄 PCA9685를 I2C 허브에 붙입니다. 이 단계는 보드 왼쪽 로직 핀 4개만, 서보는 아직 꽂지 않습니다.',
+ fig:{pi:1,bb:1,ctx:HUB,mods:[{id:'pca',x:610,y:180,w:150,t:'PCA9685 (0x40)',pins:[{n:'GND',s:'L'},{n:'OE',s:'L',nc:'비움'},{n:'SCL',s:'L'},{n:'SDA',s:'L'},{n:'VCC',s:'L'},{n:'V+',s:'L',nc:'✕ 연결 금지',bad:1}]}],
+  wires:[
+   {f:'m:pca.GND',t:'bb:rg2:496',c:'gnd',lane:496,s:'PCA9685 <b>GND</b> → GND 레일'},
+   {f:'m:pca.SCL',t:'bb:scl:358',c:'scl',lane:428,s:'PCA9685 <b>SCL</b> → SCL 줄'},
+   {f:'m:pca.SDA',t:'bb:sda:358',c:'sda',lane:440,s:'PCA9685 <b>SDA</b> → SDA 줄'},
+   {f:'m:pca.VCC',t:'bb:r3:472',c:'v3',lane:472,s:'PCA9685 <b>VCC</b> → <b>3.3V</b> 레일'}]},
+ pre:[{n:'두 장 중 한 장만 씁니다. 두 장 모두 주소가 0x40이라 같이 꽂으면 충돌합니다(주소 변경은 납땜 필요).'}],
+ post:[{n:'OE는 비워 둡니다(비우면 출력 켜짐). V+ 핀과 초록 나사 단자도 비워 둡니다.'}],
+ cautions:[['danger','<b>V+</b>(옆 핀·초록 나사 단자)에 파이 5V를 절대 잇지 않습니다. 서보가 움직일 때 큰 전류가 파이 쪽으로 흘러 파이가 꺼지거나 망가집니다. V+는 9단계에서 ESC가 서보 커넥터로 공급합니다.'],['warn','VCC는 3.3V. AS5600과 같은 이유(풀업 저항)입니다.']],
+ check:`i2cdetect -y 1        # 36, 40, 70 이 보여야 정상
+# 70 = PCA9685 의 '전체 호출' 주소 — 정상입니다`,
+ pass:'<b>통과:</b> 36 · 40 · 70 세 개.'},
+
+{id:'s5',no:'5',title:'표시기 TM1637 ×2',tag:['p-ok','납땜 없음'],
+ goal:'본체 표시기 두 개(RED = 장력 N, BLUE = 줄 길이 cm)를 연결합니다. 이 두 개는 브레드보드 허브가 아니라 파이 핀에 직접 연결합니다.',
+ fig:{pi:1,bb:1,ctx:HUB,h:392,mods:[
+   {id:'r',x:610,y:20,w:150,t:'TM1637 RED (장력)',pins:[{n:'CLK',s:'L'},{n:'DIO',s:'L'},{n:'VCC',s:'L'},{n:'GND',s:'L'}]},
+   {id:'b',x:610,y:190,w:150,t:'TM1637 BLUE (줄 길이)',pins:[{n:'CLK',s:'L'},{n:'DIO',s:'L'},{n:'VCC',s:'L'},{n:'GND',s:'L'}]}],
+  wires:[
+   {f:'m:r.GND',t:'bb:rg1:496',c:'gnd',lane:496,s:'RED <b>GND</b> → GND 레일'},
+   {f:'pi:38',t:'m:r.CLK',c:'grn',via:352,l1:250,l2:594,s:'Pi <b>38번 핀(GPIO20)</b> → RED <b>CLK</b>'},
+   {f:'pi:40',t:'m:r.DIO',c:'pur',via:360,l1:242,l2:602,s:'Pi <b>40번 핀(GPIO21)</b> → RED <b>DIO</b>'},
+   {f:'m:r.VCC',t:'bb:r3:484',c:'v3',lane:484,s:'RED <b>VCC</b> → <b>3.3V</b> 레일'},
+   {f:'m:b.GND',t:'bb:rg2:496',c:'gnd',lane:496,s:'BLUE <b>GND</b> → GND 레일(아래)'},
+   {f:'pi:35',t:'m:b.CLK',c:'grn',via:368,l1:266,l2:578,s:'Pi <b>35번 핀(GPIO19)</b> → BLUE <b>CLK</b>'},
+   {f:'pi:37',t:'m:b.DIO',c:'pur',via:376,l1:258,l2:586,s:'Pi <b>37번 핀(GPIO26)</b> → BLUE <b>DIO</b>'},
+   {f:'m:b.VCC',t:'bb:r3:460',c:'v3',lane:460,s:'BLUE <b>VCC</b> → <b>3.3V</b> 레일'}]},
+ cautions:[['warn','사진에는 표시기가 1개만 보입니다. 하나뿐이면 RED(장력)만 먼저 연결하세요. 코드는 없는 쪽을 건너뜁니다.'],['danger','VCC는 3.3V. 모듈의 CLK·DIO 풀업이 VCC에 걸려 있어 5V면 파이 핀에 5V가 들어갑니다. 3.3V에서는 조금 어둡지만 정상입니다.'],['info','파이 핀 35·37·38·40은 헤더 맨 끝(USB 포트 쪽) 네 줄입니다. 2개씩 짝이라 헷갈리기 쉬우니 꽂은 뒤 <code>pinout</code> 그림과 한 번 더 대조합니다.']],
+ check:`pip install raspberrypi-tm1637   # 이미 설치돼 있으면 생략
+python3 -c "import tm1637; tm1637.TM1637(clk=20,dio=21).number(1234); tm1637.TM1637(clk=19,dio=26).number(5678)"`,
+ pass:'<b>통과:</b> RED에 1234, BLUE에 5678.'},
+
+{id:'s6',no:'6',title:'E-stop 물리 버튼',tag:['p-buy','구매 후'],
+ goal:'네트워크와 상관없이 누르면 바로 멈추는 버튼입니다. 모터를 연결하기 전에 반드시 먼저 답니다.',
+ fig:{pi:1,bb:1,ctx:HUB,mods:[{id:'e',x:610,y:110,w:150,t:'E-stop 버튼 (NO)',pins:[{n:'단자 1',s:'L'},{n:'단자 2',s:'L'}]}],
+  wires:[
+   {f:'m:e.단자 2',t:'bb:rg1:496',c:'gnd',lane:496,s:'버튼 <b>단자 2</b> → GND 레일'},
+   {f:'pi:11',t:'m:e.단자 1',c:'grn',via:8,l1:250,l2:590,s:'Pi <b>11번 핀(GPIO17)</b> → 버튼 <b>단자 1</b>'}]},
+ pre:[{n:'평상시 열림(NO) 접점 단자 두 개에 나사로 선을 물립니다. 납땜이 필요 없는 나사 단자형을 고르세요.'}],
+ cautions:[['warn','코드는 "누르면 LOW"(내부 풀업)로 읽으므로 <b>NO 접점</b>을 씁니다.'],['warn','이 버튼은 파이에게 "멈춰"라고 알리는 소프트웨어 정지입니다. 파이가 멈춰 버리면 소용이 없으므로, 최종 차단은 9단계의 <b>ESC 전원 스위치</b>입니다. 납땜이 가능해지면 버튼의 두 번째 접점(NC)으로 ESC 전원을 직접 끊는 구조로 바꾸는 것을 권합니다.']],
+ check:`python3 -c "from gpiozero import Button; from signal import pause; b=Button(17); b.when_pressed=lambda: print('정지!'); b.when_released=lambda: print('해제'); pause()"`,
+ pass:'<b>통과:</b> 누를 때마다 "정지!", 뗄 때 "해제". Ctrl+C로 끝내기.'},
+
+{id:'s7',no:'7',title:'장력: HX711 + 로드셀',tag:['p-solder','납땜 후'],
+ goal:'줄 장력을 재는 로드셀을 증폭기 HX711에 물리고, HX711을 파이에 연결합니다. 납땜이 끝나야 할 수 있으니 순서와 위치만 미리 익혀 두세요.',
+ fig:{pi:1,bb:1,ctx:HUB,w:900,h:392,mods:[
+   {id:'hx',x:610,y:20,w:150,t:'SparkFun HX711',pins:[{n:'VDD',s:'L'},{n:'VCC',s:'L'},{n:'DAT',s:'L'},{n:'CLK',s:'L'},{n:'GND',s:'L'},{n:'RED',s:'R'},{n:'BLK',s:'R'},{n:'WHT',s:'R'},{n:'GRN',s:'R'},{n:'YLW',s:'R'}]},
+   {id:'lc',x:812,y:20,w:82,t:'SBA-50L',pins:[{n:'빨강',s:'L'},{n:'검정',s:'L'},{n:'흰',s:'L'},{n:'초록',s:'L'},{n:'투명',s:'L'}]}],
+  wires:[
+   {f:'m:lc.빨강',t:'m:hx.RED',c:'red',lane:786,s:'로드셀 <b>빨강(E+)</b> → HX711 <b>RED</b>'},
+   {f:'m:lc.검정',t:'m:hx.BLK',c:'gnd',lane:786,s:'로드셀 <b>검정(E−)</b> → HX711 <b>BLK</b>'},
+   {f:'m:lc.흰',t:'m:hx.WHT',c:'wht',lane:786,s:'로드셀 <b>흰(신호−)</b> → HX711 <b>WHT</b>'},
+   {f:'m:lc.초록',t:'m:hx.GRN',c:'grn',lane:786,s:'로드셀 <b>초록(신호+)</b> → HX711 <b>GRN</b>'},
+   {f:'m:lc.투명',t:'m:hx.YLW',c:'shd',lane:786,s:'로드셀 <b>투명(실드)</b> → HX711 <b>YLW</b>'},
+   V5[0],
+   {f:'m:hx.GND',t:'bb:rg1:496',c:'gnd',lane:496,s:'HX711 <b>GND</b> → GND 레일'},
+   {f:'pi:29',t:'m:hx.DAT',c:'grn',via:352,l1:244,l2:596,s:'Pi <b>29번 핀(GPIO5)</b> → HX711 <b>DAT</b>'},
+   {f:'pi:31',t:'m:hx.CLK',c:'pur',via:360,l1:236,l2:602,s:'Pi <b>31번 핀(GPIO6)</b> → HX711 <b>CLK</b>'},
+   {f:'m:hx.VDD',t:'bb:r3:484',c:'v3',lane:484,s:'HX711 <b>VDD</b> → <b>3.3V</b> 레일 (신호 전압)'},
+   V5[1],
+   {f:'m:hx.VCC',t:'bb:r5:472',c:'v5',lane:472,s:'HX711 <b>VCC</b> → <b>5V</b> 레일 (로드셀 전원)'}]},
+ pre:[{n:'납땜할 곳: HX711 왼쪽 5핀 헤더, 오른쪽 RED·BLK·WHT·GRN·YLW 패드에 로드셀 선 5가닥.'},{n:'연결 전 멀티미터 저항 모드: 로드셀 빨강–검정 ≈ 400Ω(데이터시트 400±25Ω). 값이 맞으면 색 배정이 맞습니다.'},{n:'RATE 점퍼(뒷면)는 기본 닫힘 = 10회/초. 처음엔 그대로 두고 시험합니다. 80회/초는 점퍼 사이 얇은 연결을 칼로 끊어야 하고 노이즈가 커집니다.'}],
+ cautions:[['danger','<b>VDD = 3.3V, VCC = 5V.</b> 이 보드에서 VDD가 DAT·CLK 신호 전압을 정합니다. 둘을 바꿔 꽂으면 DAT로 5V가 나와 파이 29번 핀이 망가질 수 있습니다.'],['danger','5V 레일은 아래쪽, 3.3V 레일은 위쪽으로 떨어뜨려 두고 테이프 색을 다르게 합니다. 이 단계에서 처음으로 5V 레일이 살아납니다.'],['warn','로드셀은 최대 50kgf(약 490N), 정지 기준 35N은 그 7% 정도입니다. 작은 영점 흔들림도 크게 보이므로 켤 때마다 영점(tare)을 다시 잡습니다.'],['warn','로드셀 케이블이 당겨지면 납땜 부위가 떨어집니다. HX711 가까이에서 케이블타이로 한 번 묶어 힘을 받게 합니다.']],
+ check:`# 납땜이 끝나면 알려 주세요. 이 보드(10회/초)에 맞춘 영점·보정 스크립트를
+# robot/ 에 만들어 드립니다. 그 전에는 배선 위치만 확인하세요.`,
+ pass:'<b>통과 기준(예정):</b> 아무것도 안 걸었을 때 0 근처, 손으로 당기면 값이 커지고 놓으면 돌아옴.'},
+
+{id:'s8',no:'8',title:'GPS NEO-6M',tag:['p-solder','납땜 후'],
+ goal:'위치·속도용 GPS를 UART로 연결합니다. 보드에 핀 헤더 납땜이 필요합니다.',
+ fig:{pi:1,bb:1,ctx:HUB.concat(V5),mods:[{id:'g',x:610,y:40,w:150,t:'GPS6MV2 (NEO-6M)',pins:[{n:'VCC',s:'L'},{n:'RX',s:'L'},{n:'TX',s:'L'},{n:'GND',s:'L'}]}],
+  wires:[
+   {f:'m:g.GND',t:'bb:rg1:496',c:'gnd',lane:496,s:'GPS <b>GND</b> → GND 레일'},
+   {f:'pi:10',t:'m:g.TX',c:'grn',via:16,l1:260,l2:592,s:'Pi <b>10번 핀(RXD)</b> ← GPS <b>TX</b> (받는 쪽 ↔ 보내는 쪽 교차)'},
+   {f:'pi:8',t:'m:g.RX',c:'pur',via:9,l1:252,l2:600,s:'Pi <b>8번 핀(TXD)</b> → GPS <b>RX</b>'},
+   {f:'m:g.VCC',t:'bb:r5:484',c:'v5',lane:484,s:'GPS <b>VCC</b> → <b>5V</b> 레일'}]},
+ cautions:[['warn','TX는 RX에, RX는 TX에 교차해서 잇습니다. 같은 이름끼리 이으면 데이터가 안 들어옵니다.'],['info','VCC는 5V여도 괜찮습니다. 보드에 3.3V 레귤레이터가 있어 TX 신호는 3.3V로 나옵니다.'],['warn','안테나의 u.FL 단자는 약합니다. 수직으로 눌러 "딸깍" 한 번에 끼우고, 자주 뺐다 끼우지 않습니다. 은색 면이 하늘을 보게 차체 맨 위에, 금속에서 떨어뜨려 둡니다.'],['info','처음 위치를 잡을 때는 실외에서 1–5분 걸릴 수 있습니다.']],
+ check:`cat /dev/ttyAMA0          # $GPRMC, $GPGGA 같은 줄이 1초마다 흐르면 정상 (Ctrl+C)
+python3 robot/bridge/gps.py  # 위도·경도 해석 확인`,
+ pass:'<b>통과:</b> 실내에서도 문장은 흐르고, 실외에서 위도·경도가 찍힘.'},
+
+{id:'s9',no:'9',title:'구동부: 서보·ESC를 PCA9685로',tag:['p-ok','납땜 없음'],
+ goal:'차체의 수신기에 꽂혀 있던 <b>조향 서보와 ESC 선 2개만</b> PCA9685로 옮깁니다. 변속 서보는 저속단에 고정하고 연결하지 않는 설계입니다(코드 기본값 SHERPY_GEAR_SERVO=off). 이 단계부터 차가 실제로 움직일 수 있으니 바퀴를 띄웁니다.',
+ fig:{pi:0,bb:0,w:780,h:230,mods:[
+   {id:'p',x:40,y:30,w:170,t:'PCA9685 출력 핀',pins:[{n:'CH0 PWM',s:'R'},{n:'CH0 V+',s:'R'},{n:'CH0 GND',s:'R'},{n:'CH1 PWM',s:'R',dy:16},{n:'CH1 V+',s:'R'},{n:'CH1 GND',s:'R'}]},
+   {id:'sv',x:600,y:20,w:160,t:'조향 서보 (35kg)',pins:[{n:'신호 (흰)',s:'L'},{n:'+ (빨강)',s:'L'},{n:'− (검정)',s:'L'}]},
+   {id:'esc',x:600,y:120,w:160,t:'ESC 수신기선 · BEC',pins:[{n:'신호 (흰)',s:'L'},{n:'+ BEC (빨강)',s:'L'},{n:'− (검정)',s:'L'}]}],
+  wires:[
+   {f:'m:p.CH0 PWM',t:'m:sv.신호 (흰)',c:'wht',lane:400,s:'조향 서보 → <b>CH0</b> (흰선이 PWM 줄)'},
+   {f:'m:p.CH0 V+',t:'m:sv.+ (빨강)',c:'red',lane:412},
+   {f:'m:p.CH0 GND',t:'m:sv.− (검정)',c:'gnd',lane:424},
+   {f:'m:p.CH1 PWM',t:'m:esc.신호 (흰)',c:'wht',lane:400,s:'ESC → <b>CH1</b> (마지막) — ESC의 빨강선이 V+ 줄 전체에 서보 전원을 공급'},
+   {f:'m:p.CH1 V+',t:'m:esc.+ BEC (빨강)',c:'red',lane:412},
+   {f:'m:p.CH1 GND',t:'m:esc.− (검정)',c:'gnd',lane:424}]},
+ pre:[{n:'차체를 받침대에 올려 <b>바퀴 4개가 바닥에서 떠 있게</b> 합니다.'},{n:'<b>원래 조종기로 저속단에 놓기.</b> 이것이 변속 서보에 하는 마지막 일입니다.'},{n:'ESC 스위치 OFF, 배터리 분리. 수신기에서 <b>조향 서보·ESC 선만</b> 뽑아 테이프 라벨. 변속 서보 선은 그대로 두거나 수신기에서 빼서 묶어 둡니다.'},{n:'<b>BEC 전압 측정:</b> ESC 선만 꽂힌 상태로 배터리 연결 → ESC ON → ESC 커넥터 빨강–검정 사이를 멀티미터로 → <b>6.0V 이하</b>인지 확인 → ESC OFF, 배터리 분리.'}],
+ post:[{n:'<b>켜는 순서:</b> 파이 켜기 → sherpy-agent 실행(PCA9685가 중립 1500µs 출력) → 배터리 연결 → ESC ON(삐 소리 = 중립 인식).'},{n:'<b>끄는 순서:</b> ESC OFF → 배터리 분리 → 파이 끄기. 켤 때와 정확히 반대입니다.'}],
+ cautions:[['danger','<b>BEC가 6V를 넘으면 연결 금지.</b> PCA9685 V+는 최대 6V입니다. 7.4V로 나오면 ESC 설명서(또는 프로그램 카드)로 6V 설정으로 바꾼 뒤 진행합니다.'],['danger','커넥터 방향: <b>흰(신호) = PWM 줄, 빨강 = 가운데 V+, 검정 = GND 줄</b>. 뒤집어 꽂으면 서보가 망가집니다. 보드 옆에 인쇄된 "PWM / V+ / GND" 글자를 보고 꽂습니다.'],['warn','35kg 서보의 전류가 보드 위를 지나갑니다. 핸들을 끝까지 꺾은 채 "웅—" 소리로 버티게 두지 말고, 보드가 뜨거우면 바로 ESC를 끕니다.'],['warn','실제 모터 출력(<code>SHERPY_MOTOR=on</code>)은 바퀴를 띄운 상태에서만 켭니다. 스로틀 상한은 0.15부터 시작합니다.'],['info','<b>변속 서보는 연결하지 않습니다.</b> 산책은 저속단만 쓰므로 처음에 조종기로 저속단에 둡니다. 전원이 없는 서보는 그 자리에 멈춰 있고, 변속기 안의 걸림쇠가 단을 잡아 줍니다. 주행 중 기어가 빠지면(모터는 도는데 바퀴가 안 돈다면) 변속 링크를 케이블타이로 저속 위치에 묶어 둡니다. 코드는 CH2가 비어 있어도 그대로 동작하여 고칠 것이 없습니다.']],
+ check:`# robot/.env  — 바퀴를 띄운 뒤에만!
+SHERPY_MOTOR=on
+SHERPY_JOY_MAX=0.15
+
+sudo systemctl restart sherpy-agent
+journalctl -u sherpy-agent -f        # 오류가 없는지 지켜보기`,
+ pass:'<b>통과:</b> 앱 수동 조종(조이스틱)으로 조향이 좌우로, 바퀴가 천천히 앞으로 돌고, 손을 떼면 0.3초 안에 멈춤. E-stop을 누르면 즉시 멈춤.'},
+
+{id:'s10',no:'10',title:'차량 전원: 배터리 → 파이',tag:['p-buy','구매 후'],
+ goal:'벽 콘센트 대신 차량 배터리로 파이를 켭니다. 납땜 없이 레버 커넥터와 USB-C 단자 어댑터로 꾸밉니다.',
+ fig:{pi:0,bb:0,w:780,h:260,mods:[
+   {id:'bat',x:20,y:110,w:110,t:'3S LiPo 11.1V',pins:[{n:'+ 빨강',s:'R'},{n:'− 검정',s:'R'}]},
+   {id:'y',x:190,y:60,w:130,t:'XT60 Y 분배',pins:[{n:'IN +',s:'L'},{n:'IN −',s:'L'},{n:'A +',s:'R'},{n:'A −',s:'R'},{n:'B +',s:'R',dy:40},{n:'B −',s:'R'}]},
+   {id:'esc',x:620,y:20,w:140,t:'ESC (모터)',pins:[{n:'+',s:'L'},{n:'−',s:'L'}]},
+   {id:'fu',x:380,y:140,w:90,t:'퓨즈 5A',pins:[{n:'in',s:'L'},{n:'out',s:'R'}]},
+   {id:'bk',x:510,y:150,w:120,t:'5V 5A 컨버터',pins:[{n:'IN+ 빨강',s:'L'},{n:'IN− 검정',s:'L'},{n:'OUT+ 노랑',s:'R'},{n:'OUT− 검정',s:'R'}]},
+   {id:'u',x:680,y:150,w:90,t:'USB-C 어댑터 → Pi',pins:[{n:'+',s:'L'},{n:'−',s:'L'}]}],
+  wires:[
+   {f:'m:y.A +',t:'m:esc.+',c:'red',lane:560,s:'Y 분배 A쪽 → <b>ESC</b> (원래 XT60 그대로)'},
+   {f:'m:y.A −',t:'m:esc.−',c:'gnd',lane:572},
+   {f:'m:y.B +',t:'m:fu.in',c:'red',lane:350,s:'Y 분배 B쪽(+) → <b>퓨즈</b> 입력 (레버 커넥터)'},
+   {f:'m:fu.out',t:'m:bk.IN+ 빨강',c:'red',lane:490,s:'퓨즈 출력 → 컨버터 <b>IN+ 빨강</b> (레버 커넥터)'},
+   {f:'m:y.B −',t:'m:bk.IN− 검정',c:'gnd',lane:340,s:'Y 분배 B쪽(−) → 컨버터 <b>IN− 검정</b>'},
+   {f:'m:bk.OUT+ 노랑',t:'m:u.+',c:'yel',lane:655,s:'컨버터 <b>OUT+ 노랑</b> → USB-C 어댑터 + (아직 파이에 꽂지 않음)'},
+   {f:'m:bk.OUT− 검정',t:'m:u.−',c:'gnd',lane:665,s:'컨버터 <b>OUT− 검정</b> → USB-C 어댑터 −'},
+   {n:'퓨즈를 퓨즈홀더에 꽂고, ESC 스위치는 OFF 확인.'},
+   {f:'m:bat.+ 빨강',t:'m:y.IN +',c:'red',lane:160,s:'<b>배터리는 맨 마지막</b>: XT60을 Y 분배 입력에 연결'},
+   {f:'m:bat.− 검정',t:'m:y.IN −',c:'gnd',lane:172},
+   {n:'멀티미터로 USB-C 어댑터 나사 단자 + / − 측정 → <b>5.0–5.25V</b>면 OK. 다르면 여기서 멈춤.'},
+   {n:'배터리 분리 → USB-C 어댑터를 파이에 꽂기 → 배터리 다시 연결 → 파이 부팅.'}]},
+ cautions:[['danger','극성: 빨강·노랑 = +, 검정 = −. 컨버터나 어댑터를 거꾸로 물리면 컨버터와 파이가 한 번에 망가집니다. 파이에 꽂기 전 멀티미터 측정은 건너뛰지 않습니다.'],['danger','5A가 흐르는 길에 가는 듀폰 점퍼선을 쓰지 않습니다(녹습니다). 컨버터·퓨즈홀더에 원래 달린 굵은 선을 레버 커넥터로 잇습니다.'],['warn','LiPo: 셀당 3.3V(합계 9.9V) 아래로 쓰지 않기 · 충전은 밸런스 충전기와 안전백 · 보관은 셀당 3.8V · 부푼 배터리는 사용 금지.'],['warn','컨버터의 최저 입력 전압은 아직 모릅니다. 배터리가 10.5V 근처로 떨어졌을 때 <code>vcgencmd get_throttled</code>가 0x0인지 한 번 확인하세요.'],['info','ROBOT_BRIDGE.md 1-2의 GPIO 5V 급전(22AWG · 퓨즈 · 1000µF)은 납땜이 필요해서, 그 전까지는 USB-C 단자 어댑터로 급전합니다. 이때 파이는 3A 전원으로 착각하므로 아래 EEPROM 설정을 넣습니다.']],
+ check:`sudo rpi-eeprom-config --edit      # 맨 아래에  PSU_MAX_CURRENT=5000  추가 후 저장
+sudo reboot
+vcgencmd get_throttled             # 0x0
+vcgencmd pmic_read_adc EXT5V_V     # 5V 입력 전압, 4.9V 이상이면 양호
+# 정상이면 robot/.env 에  SHERPY_VISION_CORES=4  SHERPY_VISION_FPS=10`,
+ pass:'<b>통과:</b> 인식을 10fps로 돌려도 재부팅 없이 0x0 유지.'},
+
+{id:'s11',no:'11',title:'차체 고정 · 첫 주행',tag:['p-info','마무리'],
+ goal:'브레드보드 제어부를 차체에 올리고, 사람 손 닿는 곳에서 첫 주행을 합니다.',
+ list:['브레드보드 뒷면 양면테이프로 차체 판에 고정. 파이는 케이스째 나사나 벨크로로.','선 묶기: 움직이는 부분(조향 링크·서스펜션)에서 2cm 이상 떨어뜨려 케이블타이로.','카메라 리본은 꺾이지 않게 완만한 곡선으로, 테이프로 2곳 고정.','흔들기 시험: 차를 손으로 30초 흔든 뒤 i2cdetect · 표시기 · GPS를 다시 확인. 브레드보드 점퍼는 진동에 빠지기 쉬우니 주행 시험이 끝나면 납땜 기판으로 옮깁니다.','보호재(방폭·완충재)는 도착하면 배터리와 브레드보드 위쪽부터 덮습니다.','첫 주행: 넓고 평평한 곳 · 한 사람은 ESC 스위치 담당 · 앱 정지 버튼과 E-stop 각각 시험 · 스로틀 상한 0.15 → 0.25 순으로.','장력 정지 시험: 줄을 손으로 당겨 35N(약 3.6kgf)에서 멈추는지 확인(7단계 보정 후).'],
+ cautions:[['danger','첫 주행에서 사람이나 강아지를 줄에 매지 않습니다. 빈 줄 또는 손으로 당겨 시험합니다.'],['warn','앱의 원격 정지는 네트워크를 타는 보조 수단입니다. 1차 안전장치는 E-stop과 ESC 스위치입니다.']]},
+
+{id:'s12',no:'12',title:'방폭 케이스 배치도',tag:['p-info','배치'],kind:'layout',
+ goal:'모든 부품을 방폭 케이스 하나에 넣는다고 할 때의 위치입니다. 강아지가 로봇 앞에 있으므로 릴·카메라는 앞쪽, 사람이 보는 표시기와 E-stop은 뒤쪽입니다. 치수는 케이스가 도착하면 실측해서 맞춥니다. 목록을 누르면 그 위치가 강조됩니다.',
+ zones:[
+  ['1','3S 배터리','전원칸 맨 아래 · 차체 가운데. 가장 무거운 부품이라 무게중심을 낮춥니다. 앞쪽에 릴이 달려 앞이 무거우니 가운데에서 약간 뒤로.'],
+  ['2','퓨즈 · 레버 커넥터 · 5V 컨버터','전원칸 위쪽. 뚜껑을 열면 퓨즈를 바로 갈 수 있는 자리. 컨버터는 금속 몸체를 바닥판에 붙여 열을 뺍니다.'],
+  ['3','칸막이 (불연재)','배터리 칸과 제어 칸을 나눕니다. 배터리가 부풀거나 불이 나도 파이 쪽으로 바로 번지지 않게. 선은 그로밋 구멍으로만 통과.'],
+  ['4','Pi 5 + 타워 팬','제어칸 <b>맨 앞</b>, 앞 벽 바로 뒤. 카메라 리본이 짧아서 카메라 가까이 둡니다. 리본 단자(CAM/DISP0)가 앞을 보게 돌려 놓으면 리본이 가장 짧게 닿습니다. 앞 벽 흡기구 바로 뒤라 팬에 찬 공기가 바로 들어갑니다. 팬 위 뚜껑에 배기구.'],
+  ['5','브레드보드','Pi 바로 뒤. 점퍼가 Pi 헤더에서 짧게 닿도록 GPIO 핀 줄이 브레드보드 쪽을 보게 Pi 방향을 맞춥니다. 뚜껑 안쪽 스펀지가 위에서 눌러 점퍼가 진동에 빠지지 않게 합니다.'],
+  ['6','PCA9685','가운데 아래쪽. 아래로 ESC·조향 서보 선이 내려가는 그로밋 가까이. 굵은 모터 선과 I2C 선은 5cm 이상 떨어뜨립니다.'],
+  ['7','HX711','앞쪽. 로드셀 선이 들어오는 그로밋 바로 옆에 두어 약한 아날로그 선을 짧게. ESC·모터 선에서 가장 먼 자리.'],
+  ['8','그로밋 · 케이블 글랜드','선이 케이스 벽을 지나가는 곳. 날카로운 구멍 모서리에 피복이 벗겨지지 않게 고무 그로밋을 끼웁니다.'],
+  ['9','릴 · 로드셀 · AS5600','케이스 밖 앞쪽. 차체 → 로드셀 → 릴이 당기는 방향으로 일직선이어야 장력이 정확합니다. AS5600은 릴 축 끝, 자석과 같은 중심.'],
+  ['10','카메라','뚜껑 앞 모서리, 가능한 한 높게. 릴과 줄이 화면 아래쪽만 살짝 보이게 하고 앞에 투명창이나 구멍.'],
+  ['11','E-stop 버튼','뚜껑 위 뒤쪽 · 사람 손이 바로 닿는 곳. 22mm 패널 구멍에 너트로 고정.'],
+  ['12','GPS 안테나','뚜껑 위 <b>뒤쪽</b>(배터리 칸 위) · 은색 면이 하늘. Pi가 앞으로 갔으니 Pi와 USB3 포트에서 10cm 이상 떨어지도록 뒤로 옮깁니다. E-stop과는 손이 걸리지 않게 조금 띄웁니다.'],
+  ['13','TM1637 표시기 ×2','뒤 벽 창. 산책하는 사람이 보는 방향입니다.'],
+  ['14','환기','흡기는 앞 벽 아래, 배기는 Pi 팬 위 뚜껑. 완전 밀폐는 금지입니다.']],
+ dims:[
+  ['차체 MJX H8P','전장 690 × 폭 260 × 높이 295 · 휠베이스 373 · 윤거 240 · 타이어 Ø135','판매처 사양','판매처마다 ±10mm 차이'],
+  ['3S 5300mAh 하드케이스','약 138 × 46 × 38 · 약 410g','같은 용량 3S 하드케이스 기준','CNHL 140C 자체 수치는 못 찾음 → 실측'],
+  ['Raspberry Pi 5','보드 85 × 56 · 케이스 포함 약 94 × 63','공식 규격 / 케이스는 추정','케이스 실측'],
+  ['타워 쿨러','보드 위 높이 약 55 (모델에 따라 45–80)','리뷰 기준','가장 중요한 높이 — 실측'],
+  ['카메라 모듈 3','25 × 24 × 11.5 · 귀 구멍 M2','공식 규격',''],
+  ['브레드보드 830홀','165 × 55 × 10 (1장)','표준 규격','케이스엔 1장만 넣기'],
+  ['PCA9685','약 62 × 26','표준 보드 크기','서보 커넥터 높이 +15'],
+  ['HX711 (SparkFun)','약 30 × 23','판매처',''],
+  ['AS5600 (Grove)','20 × 40 · 귀 구멍 M2','Grove 2칸 규격',''],
+  ['TM1637','약 42 × 24 (창 크기 약 30 × 14)','일반 모듈',''],
+  ['GPS6MV2 + 안테나','모듈 약 36 × 24 · 패치 안테나 약 25 × 25','사진 비율 추정','실측'],
+  ['5V 5A 컨버터 (FULREE)','약 75 × 45 × 20 (선 제외)','사진 비율 추정 (선 굵기 기준)','같은 모델 수치 못 찾음 → 실측 필수'],
+  ['로드셀 CAS SBA-50L','51 × 13 × 64 · 나사 1/4-28 UNF','판매처 사양','<b>인치 나사</b> — M6 너트 안 맞음'],
+  ['릴 하우징','지름 약 130','사진 비율 추정','실측'],
+  ['자석','Ø6 × 2.5 (N35)','BOM','지름 방향 필요'],
+  ['E-stop 버튼','패널 구멍 Ø22','규격','뚜껑 두께 확인']],
+ case:'케이스 내부 권장 약 <b>320 × 180 × 110 mm</b> (길이 × 폭 × 높이). 전원칸(뒤) 길이 150: 배터리 138을 길이 방향으로, 옆에 컨버터 45·퓨즈. 칸막이 3–5. 제어칸(앞) 길이 165: 맨 앞 Pi 케이스(깊이 63, 폭 94) + 옆에 HX711 → 간격 10 → 브레드보드 1장(165를 폭 방향, 깊이 55) → 간격 10 → PCA9685(26). 높이: 스페이서 10 + 보드 2 + 쿨러 약 55 + 배기 여유 15 = 약 82 → 110이면 여유. 바깥 치수 약 330 × 190 × 120이면 앞뒷바퀴 사이(휠베이스 373)와 차폭 260 안에 들어갑니다.',
+ cautions:[['danger','케이스가 <b>금속</b>이면 WiFi와 GPS가 막힙니다. GPS 안테나는 뚜껑 밖에 두고, WiFi가 약해지면 USB WiFi 안테나를 밖으로 빼야 합니다. 플라스틱·난연 ABS 케이스면 괜찮습니다.'],['danger','방폭 케이스라도 배터리 칸에는 가스가 빠질 작은 통로가 있어야 합니다. 완전히 막으면 부푼 배터리의 압력이 케이스를 터뜨립니다.'],['warn','열: Pi 5와 컨버터 모두 뜨거워집니다. 뚜껑을 닫고 인식을 30분 돌렸을 때 Pi 온도가 75°C 아래여야 합니다.'],['info','카메라 리본이 그래도 안 닿으면 Pi 5용 22핀↔15핀 카메라 케이블을 300–500mm로 사면 Pi 위치가 자유로워집니다. 리본은 길어도 신호에 문제없습니다. 단, 직각으로 접지 마세요.'],['warn','전원선(배터리·ESC·모터)과 신호선(I2C·HX711)은 5cm 이상 떨어뜨리고, 어쩔 수 없이 겹치면 직각으로 교차시킵니다. 나란히 묶으면 장력 값이 흔들립니다.']],
+ check:`# 뚜껑 닫고 인식 10fps 로 30분 돌리면서
+watch -n 10 'vcgencmd measure_temp; vcgencmd get_throttled'`,
+ pass:'<b>통과:</b> 75°C 아래 유지, throttled 0x0.'},
+
+{id:'s13',no:'13',title:'부품 고정 방법',tag:['p-ok','납땜 없음'],kind:'table',
+ goal:'납땜 없이 부품을 고정하는 방법입니다. 원칙: 회로 기판은 바닥에 직접 닿지 않게 띄우고, 무거운 것은 나사·스트랩으로, 가벼운 것은 폼테이프로, 선은 움직이지 않게 묶습니다.',
+ rows:[
+  ['Pi 5 (케이스째)','나일론 스페이서 4개 + M2.5 나사로 바닥판에 고정. 케이스 바닥에 구멍을 내기 어렵다면 듀얼락(벨크로형) 2장.','M2.5 나일론 스페이서 10mm','팬 위 15mm 이상 비우기. 금속판에 기판이 직접 닿으면 합선.'],
+  ['브레드보드','뒷면에 원래 붙어 있는 양면테이프로 바닥에 붙이기. 뚜껑 안쪽에 EVA 스펀지를 붙여 닫으면 점퍼를 위에서 누르게.','EVA 스펀지 10mm','점퍼 묶음은 보드 옆에서 케이블타이 1번.'],
+  ['PCA9685','네 귀 구멍에 나일론 스페이서. 서보 커넥터 3개 위로 절연테이프를 한 바퀴 둘러 빠짐 방지.','나일론 스페이서 (구멍 크기 맞춤, 보통 M2.5–M3)','핫글루를 핀 위에 바르지 않기(나중에 못 뺌).'],
+  ['HX711','스페이서 또는 3M 폼테이프. 로드셀 케이블은 보드에서 3cm 안에 케이블타이로 한 번 고정(납땜 부위 보호).','3M VHB 폼테이프','케이블이 당겨져도 힘이 보드에 안 가게.'],
+  ['AS5600','Grove 보드 귀 구멍(M2)을 릴 축 끝 브래킷에 나사로. 자석과 칩 사이 1–3mm는 스페이서·와셔 두께로 맞춤.','M2 나사 · 와셔','자석 근처에 쇠나사·쇠 브래킷 금지(황동·나일론·알루미늄).'],
+  ['로드셀 SBA-50L','양쪽 나사 구멍에 동봉된 아이볼트를 끝까지 돌려 넣고, 한쪽은 차체 브래킷에, 한쪽은 릴 하우징에 샤클이나 핀으로 연결. 당기는 방향과 일직선. 나사는 <b>1/4-28 UNF(인치)</b>라 M6 볼트·너트는 맞지 않습니다. 새로 살 때는 이 규격으로.','샤클 · 핀 · 1/4-28 너트','옆으로 휘는 힘을 받으면 값이 틀어지고 센서가 상합니다. 몸통을 직접 볼트로 조이지 않기.'],
+  ['릴','하우징의 기존 나사 구멍을 이용해 알루미늄/아크릴 판 브래킷에 고정, 브래킷은 로드셀 한쪽 끝에만 매달림.','브래킷 판 · M3 나사','릴이 로드셀 말고 다른 곳에 닿으면 장력이 새어 나갑니다.'],
+  ['5V 컨버터','알루미늄 몸체 귀 구멍에 나사로 바닥 금속판에 고정(방열 겸).','M3 나사','출력 노랑선이 당겨지지 않게 여유 루프.'],
+  ['퓨즈홀더 · 레버 커넥터','접착식 케이블타이 마운트 + 케이블타이. 레버 커넥터는 양면테이프 또는 전용 마운팅 캐리어.','케이블타이 마운트','퓨즈는 손이 닿는 위쪽에.'],
+  ['배터리','차체 트레이(또는 전원칸)에 벨크로 스트랩 2줄 + 앞뒤 폼 블록으로 밀림 0.','배터리 스트랩 · 폼 블록','손으로 밀어 1mm도 안 움직여야 합격. 날카로운 나사 끝이 배터리에 닿지 않게.'],
+  ['카메라','Camera Module 3 귀 구멍(M2)에 나일론 스페이서, 앞 벽 브래킷에 나사. 리본은 테이프로 2곳 고정.','M2 나일론 스페이서','리본을 직각으로 접지 않기.'],
+  ['GPS','패치 안테나는 뚜껑 위 양면테이프, 모듈은 뚜껑 안쪽 폼테이프. u.FL 선은 테이프로 고정해 당겨지지 않게.','양면테이프','안테나 위를 금속으로 덮지 않기.'],
+  ['TM1637 ×2','뒤 벽에 창을 내고 귀 구멍 나사 또는 안쪽에서 폼테이프.','M2 나사 / 폼테이프','핀 쪽 점퍼에 여유 루프.'],
+  ['E-stop','뚜껑에 22mm 구멍(스텝 드릴) → 버튼을 끼우고 뒤에서 링너트 조이기. 단자 선은 나사로.','22mm 스텝 드릴','누를 때 뚜껑이 휘지 않을 만큼 단단한 자리.'],
+  ['선 전체','15cm마다 케이블타이. 조향 링크·서스펜션·바퀴에서 2cm 이상. 움직이는 곳을 지나야 하면 스파이럴 튜브로 느슨하게.','케이블타이 · 스파이럴 튜브','핫글루는 선 다발 고정에만, 기판·커넥터 위에는 쓰지 않기.']],
+ cautions:[['danger','기판(PCB)을 금속판에 직접 붙이지 않습니다. 뒷면 납땜 점이 판에 닿아 합선됩니다. 금속판이면 나일론 스페이서로 띄우거나 절연 시트를 깝니다.'],['warn','양면테이프는 붙이기 전 알코올로 닦고, 30초 꾹 누른 뒤 1시간 지나 주행합니다.'],['info','브레드보드 고정은 시험용입니다. 주행 시험이 끝나면 납땜 기판(만능기판)으로 옮기는 것이 진동에 안전합니다.']],
+ check:`# 고정이 끝나면: 차체를 손으로 30초 흔든 뒤
+i2cdetect -y 1                 # 36, 40, 70 그대로인지
+python3 robot/bridge/gps.py    # GPS 그대로 들어오는지`,
+ pass:'<b>통과:</b> 흔든 뒤에도 장치가 그대로 보이고, 손으로 밀어 움직이는 부품이 없음.'}
+];
+
+/* ───────── 케이스 배치도 SVG ───────── */
+function layoutSVG(){
+  const Z=(n,inner)=>`<g data-z="${n}">${inner}</g>`;
+  const num=(x,y,n)=>`<circle cx="${x}" cy="${y}" r="9" style="fill:var(--accent)"/><text x="${x}" y="${y+3.5}" text-anchor="middle" style="font:700 10px var(--f-mono);fill:#fff">${n}</text>`;
+  const box=(x,y,w,h,fill,stroke)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6" style="fill:${fill};stroke:${stroke};stroke-width:1.4"/>`;
+  const tx=(x,y,t,cls='t-s',anc='middle')=>`<text x="${x}" y="${y}" text-anchor="${anc}" class="${cls}">${t}</text>`;
+  let top=`<svg viewBox="0 0 900 420" role="img" aria-label="위에서 본 배치도" id="lay-top">`;
+  top+=tx(450,18,'위에서 본 모습 (뚜껑 연 상태)   ◀ 뒤 · 사람 쪽        앞 · 강아지 쪽 ▶','t-s t-mut');
+  [[110,34],[110,348],[640,34],[640,348]].forEach(([x,y])=>top+=`<rect x="${x}" y="${y}" width="130" height="40" rx="10" style="fill:var(--w-gnd);opacity:.8"/>`);
+  top+=box(70,78,760,268,'var(--mod)','var(--line)');
+  top+=`<rect x="150" y="96" width="560" height="236" rx="12" style="fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.6;stroke-dasharray:7 4;opacity:.9"/>`+tx(160,114,'방폭 케이스','t-s','start');
+  top+=Z(1,box(166,128,160,78,'var(--warn-soft)','var(--warn)')+tx(246,166,'3S 배터리')+tx(246,182,'가장 아래 · 스트랩 2줄','t-m t-mut')+num(178,140,1));
+  top+=Z(2,box(166,216,160,104,'var(--warn-soft)','var(--warn)')+box(178,232,48,24,'var(--panel)','var(--warn)')+tx(202,248,'퓨즈','t-m')+box(234,232,80,24,'var(--panel)','var(--warn)')+tx(274,248,'레버·Y','t-m')+box(178,266,136,42,'#b9c2be','var(--muted)')+tx(246,291,'5V 컨버터','t-m')+num(178,226,2));
+  top+=Z(3,`<line x1="342" y1="104" x2="342" y2="326" style="stroke:var(--danger);stroke-width:4;stroke-dasharray:8 4"/>`+num(342,96,3));
+  top+=Z(4,box(546,126,152,104,'var(--pcb)','var(--pcb)')+`<circle cx="622" cy="172" r="30" style="fill:none;stroke:var(--pcb-ink);stroke-width:1.5"/><circle cx="622" cy="172" r="6" style="fill:var(--pcb-ink)"/>`+`<text x="622" y="220" text-anchor="middle" style="font:500 10.5px var(--f-body);fill:var(--pcb-ink)">Pi 5 + 팬</text>`+`<path d="M698 160 Q708 162 714 162" style="fill:none;stroke:#e2b616;stroke-width:3"/>`+num(558,138,4));
+  top+=Z(5,box(358,126,174,104,'var(--bb)','var(--bb-line)')+tx(445,182,'브레드보드')+num(370,138,5));
+  top+=Z(6,box(358,244,170,76,'var(--info-soft)','var(--info)')+tx(443,286,'PCA9685')+num(370,256,6));
+  top+=Z(7,box(600,244,98,76,'var(--danger-soft)','var(--danger)')+tx(649,286,'HX711')+num(612,256,7));
+  top+=Z(8,[[710,282,'서보·ESC선'],[710,212,'로드셀선'],[250,332,'ESC 전원']].map(([x,y,l])=>`<circle cx="${x}" cy="${y}" r="7" style="fill:var(--bg);stroke:var(--accent);stroke-width:2"/>`+tx(x,y+(y>320?-12:20),l,'t-m t-mut')).join('')+num(726,300,8));
+  top+=Z(9,`<rect x="722" y="202" width="26" height="22" rx="3" style="fill:#c3c9c5;stroke:var(--muted)"/><text x="735" y="217" text-anchor="middle" class="t-m">S</text><circle cx="788" cy="213" r="32" style="fill:var(--mod);stroke:var(--ink);stroke-width:1.5"/><circle cx="788" cy="213" r="8" style="fill:var(--danger)"/><line x1="820" y1="213" x2="896" y2="213" style="stroke:#7fd34e;stroke-width:4"/>`+tx(858,204,'리드줄','t-m','middle')+tx(788,262,'릴·로드셀·AS5600','t-m')+num(808,180,9));
+  top+=Z(10,box(714,142,24,40,'var(--w-gnd)','var(--muted)')+`<circle cx="733" cy="162" r="5" style="fill:#5aa0ff"/>`+num(752,136,10));
+  top+=`<text x="450" y="404" text-anchor="middle" class="t-m t-mut">차체 전장 690 · 휠베이스 373 · 폭 260  |  케이스 내부 권장 약 320 × 180 × 110 mm (전원칸 150 · 제어칸 165)</text>`;
+  top+=`</svg>`;
+
+  let side=`<svg viewBox="0 0 900 270" role="img" aria-label="옆에서 본 배치도" id="lay-side">`;
+  side+=tx(450,18,'옆에서 본 모습   ◀ 뒤          앞 ▶','t-s t-mut');
+  side+=`<line x1="20" y1="248" x2="880" y2="248" style="stroke:var(--line);stroke-width:2"/>`;
+  [[180,212],[720,212]].forEach(([x,y])=>side+=`<circle cx="${x}" cy="${y}" r="36" style="fill:var(--w-gnd);opacity:.8"/>`);
+  side+=box(90,178,740,16,'var(--mod)','var(--line)');
+  side+=`<rect x="150" y="80" width="560" height="98" rx="8" style="fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.6"/><line x1="150" y1="80" x2="710" y2="80" style="stroke:var(--accent);stroke-width:4"/>`;
+  side+=Z(1,box(166,140,160,34,'var(--warn-soft)','var(--warn)')+tx(246,161,'배터리'));
+  side+=Z(2,box(176,104,140,28,'#b9c2be','var(--muted)')+tx(246,122,'컨버터·퓨즈','t-m'));
+  side+=Z(3,`<line x1="342" y1="84" x2="342" y2="176" style="stroke:var(--danger);stroke-width:4;stroke-dasharray:8 4"/>`);
+  side+=Z(4,`<line x1="558" y1="176" x2="558" y2="156" style="stroke:var(--muted);stroke-width:3"/><line x1="684" y1="176" x2="684" y2="156" style="stroke:var(--muted);stroke-width:3"/>`+box(548,146,146,10,'var(--pcb)','var(--pcb)')+box(572,118,98,28,'var(--mod)','var(--pcb)')+tx(621,136,'Pi + 팬','t-m')+`<path d="M694 150 Q712 140 716 106" style="fill:none;stroke:#e2b616;stroke-width:3"/>`+tx(640,170,'카메라 리본 →','t-m t-mut'));
+  side+=Z(5,box(358,160,174,14,'var(--bb)','var(--bb-line)')+box(358,86,174,16,'#e9e1c9','var(--muted)')+tx(445,98,'뚜껑 안쪽 스펀지','t-m'));
+  side+=Z(14,`<path d="M588 76 v-22 m-6 8 l6 -8 l6 8 M622 76 v-22 m-6 8 l6 -8 l6 8 M656 76 v-22 m-6 8 l6 -8 l6 8" style="fill:none;stroke:var(--info);stroke-width:2"/>`+tx(622,44,'배기','t-m')+`<path d="M760 150 h-46 m8 -6 l-8 6 l8 6 M760 166 h-46 m8 -6 l-8 6 l8 6" style="fill:none;stroke:var(--info);stroke-width:2"/>`+tx(786,140,'흡기','t-m')+num(690,44,14));
+  side+=Z(11,`<rect x="206" y="66" width="28" height="14" style="fill:#d9b52a"/><path d="M204 66 a16 14 0 0 1 32 0z" style="fill:var(--danger)"/>`+tx(220,44,'E-stop','t-m')+num(250,52,11));
+  side+=Z(12,box(276,70,56,10,'#c9ced0','var(--muted)')+tx(304,60,'GPS','t-m')+num(346,62,12));
+  side+=Z(13,box(138,96,12,46,'var(--w-gnd)','var(--muted)')+tx(130,114,'표시기','t-m','end')+tx(130,128,'(뒤 벽)','t-m t-mut','end')+num(118,150,13));
+  side+=Z(10,box(704,84,24,22,'var(--w-gnd)','var(--muted)')+`<circle cx="728" cy="95" r="4" style="fill:#5aa0ff"/>`+tx(742,74,'카메라','t-m','start')+num(744,108,10));
+  side+=Z(9,`<rect x="712" y="148" width="22" height="10" style="fill:#c3c9c5"/><circle cx="770" cy="152" r="24" style="fill:var(--mod);stroke:var(--ink);stroke-width:1.5"/><line x1="794" y1="152" x2="890" y2="136" style="stroke:#7fd34e;stroke-width:4"/>`+tx(842,128,'리드줄 → 강아지','t-m'));
+  side+=`</svg>`;
+  return top+side;
+}
+function renderKind(st,h){
+  if(st.kind==='layout'){
+    h+=`<div class="fig"><div class="fig-bar"><span class="hint">숫자 = 목록 번호 · 누르면 그 부품만 강조 · 그림은 위치 관계만(비율 아님), 치수는 아래 표</span></div><div class="svgbox lay">${layoutSVG()}</div></div>`;
+    h+=`<div class="cols"><div><h4>위치와 이유</h4><ol class="steps zl">${st.zones.map(z=>`<li tabindex="0" data-z="${z[0]}" style="counter-increment:none"><span><b>${z[0]}. ${z[1]}</b> — ${z[2]}</span></li>`).join('')}</ol></div><div><h4>이 단계에서 주의할 점</h4><div class="cautions">${st.cautions.map(cauHTML).join('')}</div></div></div>`;
+    if(st.dims){h+=`<div class="check"><h4>부품 치수 (mm) — 검색 사양 + 사진 추정</h4><div class="cau info" style="margin-bottom:10px">${st.case}</div><div class="tbl"><table><thead><tr><th>부품</th><th>치수</th><th>근거</th><th>메모</th></tr></thead><tbody>${st.dims.map(d=>`<tr><td><b>${d[0]}</b></td><td class="mono" style="white-space:normal">${d[1]}</td><td>${d[2]}</td><td>${d[3]}</td></tr>`).join('')}</tbody></table></div><p class="pass">"사진 비율 추정"은 같은 사진 속 다른 부품이나 선 굵기와 비교한 값이라 ±10mm 틀릴 수 있습니다. 케이스를 사거나 구멍을 뚫기 전에 자로 한 번 재 주세요.</p></div>`}
+  } else {
+    h+=`<div class="tbl" style="margin-top:14px"><table><thead><tr><th>부품</th><th>고정 방법</th><th>필요한 것</th><th>주의</th></tr></thead><tbody>${st.rows.map(r=>`<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join('')}</tbody></table></div>`;
+    h+=`<div class="cautions" style="margin-top:14px">${st.cautions.map(cauHTML).join('')}</div>`;
+  }
+  return h;
+}
+function cauHTML(c){return `<div class="cau ${c[0]}"><span class="lv">${c[0]==='danger'?'위험':c[0]==='warn'?'주의':'참고'}</span>${c[1]}</div>`}
+function wireZones(art){
+  const svgs=art.querySelectorAll('.lay svg'),lis=[...art.querySelectorAll('ol.zl li')];let cur=null;
+  const set=z=>{cur=(cur===z)?null:z;svgs.forEach(s=>{s.classList.toggle('zf',!!cur);s.querySelectorAll('[data-z]').forEach(g=>g.classList.toggle('on',g.dataset.z===cur))});lis.forEach(l=>l.classList.toggle('now',l.dataset.z===cur))};
+  lis.forEach(l=>{l.addEventListener('click',()=>set(l.dataset.z));l.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();set(l.dataset.z)}})});
+  svgs.forEach(s=>s.querySelectorAll('[data-z]').forEach(g=>{g.style.cursor='pointer';g.addEventListener('click',()=>set(g.dataset.z))}));
+}
+
+/* ───────── 헬퍼 ───────── */
+const esc=s=>String(s);
+function modLayout(m){
+  const L=[],R=[];let offL=0,offR=0;
+  m.pins.forEach(p=>{const side=p.s||'L';const arr=side==='L'?L:R;if(side==='L'){offL+=p.dy||0;p._y=m.y+30+L.length*18+offL}else{offR+=p.dy||0;p._y=m.y+30+R.length*18+offR}arr.push(p);p._x=side==='L'?m.x:m.x+m.w});
+  const last=Math.max(...m.pins.map(p=>p._y));m._h=last-m.y+16;return m;
+}
+function endpoint(spec,mods){
+  const [kind,rest]=[spec.slice(0,spec.indexOf(':')),spec.slice(spec.indexOf(':')+1)];
+  if(kind==='pi'){const p=+rest;return Object.assign(pinXY(p),{pin:p})}
+  if(kind==='bb'){const [r,x]=rest.split(':');return {x:+x,y:BB[r]}}
+  if(kind==='m'){const dot=rest.indexOf('.');const id=rest.slice(0,dot),n=rest.slice(dot+1);const m=mods.find(q=>q.id===id);const p=m.pins.find(q=>q.n===n);return {x:p._x,y:p._y}}
+}
+function route(a,b,w){
+  if(w.arc)return `M${a.x} ${a.y} Q${(a.x+b.x)/2} ${a.y-20} ${b.x} ${b.y}`;
+  let d=`M${a.x} ${a.y}`;
+  if(a.odd)d+=` L${a.x+11} ${a.y+7.75}`;
+  if(w.via!=null)return d+` H${w.l1} V${w.via} H${w.l2} V${b.y} H${b.x}`;
+  const lane=w.lane!=null?w.lane:b.x;
+  return d+` H${lane} V${b.y} H${b.x}`;
+}
+function wireSVG(w,mods,k,ctx){
+  const a=endpoint(w.f,mods),b=endpoint(w.t,mods),d=route(a,b,w),c=COL[w.c];
+  return `<g class="wire${ctx?' ctx':''}" data-k="${k}"><path class="edge" d="${d}" pathLength="1"/><path class="core" d="${d}" pathLength="1" style="stroke:${c}"/><circle class="end" cx="${a.x}" cy="${a.y}" r="4.2" style="fill:${c}"/><circle class="end" cx="${b.x}" cy="${b.y}" r="4.2" style="fill:${c}"/></g>`;
+}
+function drawPi(used){
+  let s=`<rect x="70" y="18" width="50" height="318" rx="6" style="fill:var(--pcb)"/><text x="95" y="12" text-anchor="middle" class="t-s" style="font-weight:700">Pi 5 GPIO</text>`;
+  for(let p=1;p<=40;p++){const {x,y}=pinXY(p);const u=used.has(p);
+    s+=`<circle cx="${x}" cy="${y}" r="${u?5:3.4}" style="fill:${u?pinFill(p):'#b9ad84'};stroke:${u?'var(--pcb-ink)':'none'};stroke-width:1.2"/>`;
+    if(u){const lab=p%2?`${PIN[p]}  ${p}`:`${p}  ${PIN[p]}`;
+      s+=`<text x="${p%2?62:128}" y="${y+3.5}" text-anchor="${p%2?'end':'start'}" class="t-m halo">${lab}</text>`}}
+  s+=`<text x="95" y="350" text-anchor="middle" class="t-m t-mut">↓ USB 포트 쪽</text>`;
+  return s;
+}
+function drawBB(){
+  let s=`<rect x="${BB.x0}" y="${BB.y0}" width="${BB.x1-BB.x0}" height="${BB.y1-BB.y0}" rx="8" style="fill:var(--bb);stroke:var(--bb-line)"/>`;
+  const rail=(y,col,lab)=>{let r=`<line x1="310" y1="${y-8}" x2="404" y2="${y-8}" style="stroke:${col};stroke-width:1.2"/><line x1="420" y1="${y-8}" x2="514" y2="${y-8}" style="stroke:${col};stroke-width:1.2"/>`;
+    for(let k=0;k<=16;k++){if(k===8)continue;const x=316+12*k;r+=`<rect x="${x-2.2}" y="${y-2.2}" width="4.4" height="4.4" rx="1" style="fill:var(--hole)"/>`}
+    r+=`<text x="412" y="${y+3}" text-anchor="middle" class="t-m t-mut" style="font-size:8.5px">끊김</text><text x="514" y="${y-11}" text-anchor="end" class="t-m t-mut" style="font-size:9px">${lab}</text>`;return r};
+  s+=rail(BB.r3,'#e0393b','+ 3.3V')+rail(BB.rg1,'#2f7de1','− GND')+rail(BB.r5,'#e0393b','+ 5V')+rail(BB.rg2,'#2f7de1','− GND');
+  const strip=(y,lab)=>{let r='';for(let k=0;k<5;k++){r+=`<rect x="${322+12*k-2.2}" y="${y-2.2}" width="4.4" height="4.4" rx="1" style="fill:var(--hole)"/>`}r+=`<rect x="314" y="${y-7}" width="64" height="14" rx="3" style="fill:none;stroke:var(--bb-line);stroke-dasharray:3 2"/><text x="346" y="${y+18}" text-anchor="middle" class="t-m t-mut" style="font-size:9px">${lab}</text>`;return r};
+  s+=strip(BB.sda,'SDA 줄 (a–e)')+strip(BB.scl,'SCL 줄 (a–e)');
+  s+=`<text x="410" y="250" text-anchor="middle" class="t-s t-mut">브레드보드 (분배용)</text>`;
+  return s;
+}
+function drawMod(m){
+  let s=`<rect x="${m.x}" y="${m.y}" width="${m.w}" height="${m._h}" rx="7" style="fill:var(--mod);stroke:var(--line)"/><text x="${m.x+m.w/2}" y="${m.y+17}" text-anchor="middle" class="t-s" style="font-weight:700">${m.t}</text>`;
+  m.pins.forEach(p=>{const L=(p.s||'L')==='L';
+    s+=`<circle cx="${p._x}" cy="${p._y}" r="4" style="fill:${p.nc?'var(--mod)':'var(--hole)'};stroke:${p.bad?'var(--danger)':'var(--muted)'};stroke-width:1.3"/>`;
+    s+=`<text x="${L?p._x+10:p._x-10}" y="${p._y+3.5}" text-anchor="${L?'start':'end'}" class="t-m">${p.n}${p.nc?` <tspan class="${p.bad?'t-dan':'t-mut'}">${p.nc}</tspan>`:''}</text>`});
+  return s;
+}
+
+/* ───────── 단계 렌더 ───────── */
+const root=document.getElementById('stages');
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+document.getElementById('rules').innerHTML=[
+ ['1','전원 끄고 꽂기','파이는 끄고 USB-C를 뽑은 뒤, 배터리도 뽑은 상태에서만 선을 만집니다.'],
+ ['2','GND 먼저, 전원 마지막','꽂을 때 GND → 신호 → 전원. 뺄 때는 거꾸로.'],
+ ['3','신호는 3.3V만','파이 핀은 3.3V 전용. 모듈 VCC는 3.3V 레일 (예외: HX711 VCC, GPS VCC).'],
+ ['4','한 단계씩 확인','"확인" 명령이 통과해야 다음 단계로.'],
+ ['5','바퀴는 띄워서','모터가 연결된 뒤에는 받침대 위에서만 시험.']
+].map(r=>`<div class="rule"><span class="k">${r[0]}</span><div><b>${r[1]}</b><span>${r[2]}</span></div></div>`).join('');
+
+document.getElementById('chips').innerHTML=`<a href="#parts">부품</a><a href="#pinmap">핀 배치</a>`+STAGES.map(s=>`<a href="#${s.id}"><span class="n">${s.no}</span>${s.title.split(':')[0].split('(')[0].trim()}</a>`).join('');
+
+document.getElementById('pintable').innerHTML=[
+ ['브레드보드 허브','3.3V / GND / SDA / SCL','Pi 1 / 6 / 3 / 5번 핀','v3,gnd,sda,scl'],
+ ['5V 레일 (7단계부터)','5V','Pi 4번 핀','v5'],
+ ['AS5600 (0x36)','GND · VCC · SDA · SCL','GND · 3.3V 레일 · SDA줄 · SCL줄','gnd,red,wht,yel'],
+ ['PCA9685 (0x40)','GND · SCL · SDA · VCC','GND · SCL줄 · SDA줄 · 3.3V 레일 (OE·V+ 비움)','gnd,scl,sda,v3'],
+ ['TM1637 RED','CLK · DIO','Pi 38번(GPIO20) · 40번(GPIO21)','grn,pur'],
+ ['TM1637 BLUE','CLK · DIO','Pi 35번(GPIO19) · 37번(GPIO26)','grn,pur'],
+ ['E-stop','단자 1 · 단자 2','Pi 11번(GPIO17) · GND','grn,gnd'],
+ ['HX711','VDD · VCC · DAT · CLK','3.3V · 5V · Pi 29번(GPIO5) · 31번(GPIO6)','v3,v5,grn,pur'],
+ ['GPS','TX · RX · VCC','Pi 10번(RXD) · 8번(TXD) · 5V','grn,pur,v5'],
+ ['PCA9685 출력','CH0 · CH1','조향 서보 · ESC (CH2 비움 — 변속은 저속단 고정)','wht,red,gnd']
+].map(r=>`<tr><td>${r[0]}</td><td class="mono">${r[1]}</td><td>${r[2]}</td><td>${r[3].split(',').map(c=>`<span class="sw" style="background:${COL[c]}" title="${CNAME[c]}"></span>`).join('')}</td></tr>`).join('');
+
+STAGES.forEach(st=>{
+  const art=document.createElement('article');art.className='stage';art.id=st.id;
+  let h=`<div class="stage-head"><span class="stage-no">단계 ${st.no}</span><h3>${st.title}</h3><span class="pill ${st.tag[0]}">${st.tag[1]}</span></div><p class="goal">${st.goal}</p>`;
+  if(st.kind){h=renderKind(st,h);
+    if(st.check)h+=`<div class="check"><h4>확인</h4><div class="codebox"><button type="button" data-copy>복사</button><pre><code>${st.check.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</code></pre></div>${st.pass?`<p class="pass">${st.pass}</p>`:''}</div>`;
+    art.innerHTML=h;root.appendChild(art);if(st.kind==='layout')wireZones(art);return}
+  let steps=[];
+  if(st.fig){
+    const f=st.fig,W=f.w||780,H=f.h||(f.bb?392:300);
+    const mods=(f.mods||[]).map(m=>modLayout(JSON.parse(JSON.stringify(m))));
+    steps=[].concat(st.pre||[],f.wires,st.post||[]);
+    const wiresOnly=f.wires.filter(w=>w.f);
+    const used=new Set();[].concat(f.ctx||[],wiresOnly).forEach(w=>[w.f,w.t].forEach(e=>{if(e&&e.startsWith('pi:'))used.add(+e.slice(3))}));
+    let svg=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${st.title} 배선도" id="svg-${st.id}">`;
+    if(f.bb)svg+=drawBB();
+    mods.forEach(m=>svg+=drawMod(m));
+    (f.ctx||[]).forEach((w,i)=>svg+=wireSVG(w,mods,'c'+i,true));
+    steps.forEach((w,k)=>{if(w.f)svg+=wireSVG(w,mods,k,false)});
+    if(f.pi)svg+=drawPi(used);
+    svg+=`</svg>`;
+    h+=`<div class="fig"><div class="fig-bar"><button class="play" type="button" id="play-${st.id}">▶ 연결 순서 재생</button><span class="hint">${f.ctx?'흐린 선 = 이전 단계에서 이미 꽂은 선':'오른쪽 목록을 누르면 그 선만 강조'}</span></div><div class="svgbox">${svg}</div><p class="cap" id="cap-${st.id}" aria-live="polite">재생을 누르면 꽂는 순서대로 선이 그려집니다.</p></div>`;
+  } else if(st.steps){steps=st.steps}
+  // 순서 목록: 같은 커넥터의 연속 선(설명 없는 선)은 앞 줄에 묶는다
+  let li='';const groups=[];
+  steps.forEach((w,k)=>{if(w.f&&!w.s&&groups.length){groups[groups.length-1].ks.push(k)}else groups.push({k,ks:[k],w})});
+  st._groups=groups;
+  groups.forEach((g,gi)=>{const w=g.w;
+    if(w.f){const sw=g.ks.map(k=>`<span class="sw" style="background:${COL[steps[k].c]}"></span>`).join('');li+=`<li tabindex="0" data-g="${gi}">${sw.length>200?'':''}<span>${g.ks.length>1?g.ks.map(k=>`<span class="sw" style="background:${COL[steps[k].c]};width:12px"></span>`).join(''):`<span class="sw" style="background:${COL[w.c]}"></span>`}${w.s}</span></li>`}
+    else li+=`<li class="note" tabindex="0" data-g="${gi}"><span><span class="tag">확인·준비</span>${w.n}</span></li>`});
+  let right='';
+  if(st.cautions)right+=`<h4>이 단계에서 주의할 점</h4><div class="cautions">${st.cautions.map(c=>`<div class="cau ${c[0]}"><span class="lv">${c[0]==='danger'?'위험':c[0]==='warn'?'주의':'참고'}</span>${c[1]}</div>`).join('')}</div>`;
+  let left=steps.length?`<h4>연결 순서</h4><ol class="steps" id="steps-${st.id}">${li}</ol>`:`<h4>준비할 것 · 할 일</h4><ul class="plain">${(st.list||[]).map(x=>`<li>${x}</li>`).join('')}</ul>`;
+  if(steps.length&&st.list)left+=`<ul class="plain" style="margin-top:10px">${st.list.map(x=>`<li>${x}</li>`).join('')}</ul>`;
+  h+=`<div class="cols"><div>${left}</div><div>${right}</div></div>`;
+  if(st.check)h+=`<div class="check"><h4>확인</h4><div class="codebox"><button type="button" data-copy>복사</button><pre><code>${st.check.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</code></pre></div>${st.pass?`<p class="pass">${st.pass}</p>`:''}</div>`;
+  art.innerHTML=h;root.appendChild(art);
+  if(st.fig)wire(st,steps);
+  else if(steps.length){art.querySelectorAll('ol.steps li').forEach(el=>el.addEventListener('click',()=>{art.querySelectorAll('ol.steps li').forEach(x=>x.classList.remove('now'));el.classList.add('now')}))}
+});
+
+function wire(st,steps){
+  const svg=document.getElementById('svg-'+st.id),cap=document.getElementById('cap-'+st.id),btn=document.getElementById('play-'+st.id),list=document.getElementById('steps-'+st.id);
+  const lis=[...list.children];const groups=st._groups;let tok=0,sel=-1;
+  const G=k=>svg.querySelector(`.wire[data-k="${k}"]`);
+  const showAll=()=>svg.querySelectorAll('.wire:not(.ctx)').forEach(g=>{g.style.opacity='';g.querySelectorAll('.end').forEach(e=>e.style.opacity='')});
+  const mark=gi=>{lis.forEach((l,i)=>l.classList.toggle('now',i===gi));};
+  const text=gi=>{const w=groups[gi].w;return `<b>${gi+1}.</b> ${w.f?w.s:w.n}`};
+  const sleep=(ms,t)=>new Promise(r=>setTimeout(()=>r(t===tok),ms));
+  async function play(){
+    const t=++tok;sel=-1;svg.classList.remove('focus');svg.querySelectorAll('.wire.on').forEach(g=>g.classList.remove('on'));
+    if(reduce){showAll();cap.innerHTML='모든 선을 표시했습니다. 목록을 눌러 하나씩 볼 수 있어요.';return}
+    svg.querySelectorAll('.wire:not(.ctx)').forEach(g=>{g.style.opacity='0'});
+    btn.textContent='■ 재생 중… (다시 누르면 처음부터)';
+    for(let gi=0;gi<groups.length;gi++){
+      if(t!==tok)return;mark(gi);cap.innerHTML=text(gi);
+      const gr=groups[gi];
+      if(gr.w.f){
+        for(const k of gr.ks){const g=G(k);if(!g)continue;g.style.opacity='1';const ends=g.querySelectorAll('.end');ends.forEach(e=>e.style.opacity='0');
+          g.querySelectorAll('path').forEach(p=>p.animate([{strokeDasharray:'1 1',strokeDashoffset:1},{strokeDasharray:'1 1',strokeDashoffset:0}],{duration:650,easing:'ease-in-out'}));
+          ends[0].style.opacity='1';if(!await sleep(gr.ks.length>1?260:650,t))return;ends[1].style.opacity='1'}
+        if(!await sleep(gr.ks.length>1?700:550,t))return;
+      } else if(!await sleep(1500,t))return;
+    }
+    mark(-1);btn.textContent='▶ 연결 순서 재생';cap.innerHTML='완료. 목록의 줄을 누르면 그 선만 강조됩니다.';
+  }
+  function select(gi){
+    tok++;showAll();btn.textContent='▶ 연결 순서 재생';
+    svg.querySelectorAll('.wire.on').forEach(g=>g.classList.remove('on'));
+    if(sel===gi){sel=-1;svg.classList.remove('focus');mark(-1);cap.innerHTML='선택을 풀었습니다.';return}
+    sel=gi;mark(gi);cap.innerHTML=text(gi);
+    const gr=groups[gi];
+    if(gr.w.f){svg.classList.add('focus');gr.ks.forEach(k=>G(k)&&G(k).classList.add('on'))}else svg.classList.remove('focus');
+  }
+  btn.addEventListener('click',play);
+  lis.forEach((l,i)=>{l.addEventListener('click',()=>select(i));l.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select(i)}})});
+  if(!reduce&&'IntersectionObserver' in window){let done=false;const io=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting&&!done){done=true;io.disconnect();play()}})},{threshold:.45});io.observe(svg)}
+}
+
+document.addEventListener('click',e=>{const b=e.target.closest('[data-copy]');if(!b)return;const txt=b.nextElementSibling.innerText;
+  const ok=()=>{b.textContent='복사됨';setTimeout(()=>b.textContent='복사',1400)};
+  try{navigator.clipboard.writeText(txt).then(ok,()=>{selectPre(b)})}catch(_){selectPre(b)}});
+function selectPre(b){const r=document.createRange();r.selectNodeContents(b.nextElementSibling);const s=getSelection();s.removeAllRanges();s.addRange(r);b.textContent='선택됨 — Ctrl+C'}
+})();
+</script>

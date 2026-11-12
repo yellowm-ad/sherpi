@@ -31,6 +31,9 @@ paths:
     rpiCameraHeight: 720
     rpiCameraFPS: 15
     rpiCameraBitrate: 1500000
+    # 센서 전체 화각 모드 — 지정하지 않으면 1280x720 에 1536x864(가운데 자른) 모드가 골라져 화면이 좁아진다.
+    # bridge/vision.py 의 CAM_MODE 와 같게 둔다.
+    rpiCameraMode: 2304:1296:10:P
     # 카메라를 거꾸로 달았으면 둘 다 true (180° 회전)
     rpiCameraHFlip: false
     rpiCameraVFlip: false

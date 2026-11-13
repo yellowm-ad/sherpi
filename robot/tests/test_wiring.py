@@ -32,14 +32,21 @@ class FakeBus:
     def read_byte_data(self, addr, reg):
         return self._regs(addr).get(reg, 0)
 
+    def write_byte_data(self, addr, reg, v):
+        self._regs(addr)[reg] = v
+
+    def _ai(self, addr):
+        # PCA9685 는 MODE1 의 자동 증가(0x20)가 꺼져 있으면 블록 접근이 같은 칸에 머문다 (실물 동작)
+        return addr != 0x40 or bool(self.dev[addr].get(0x00, 0) & 0x20)
+
     def read_i2c_block_data(self, addr, reg, n):
         r = self._regs(addr)
-        return [r.get(reg + i, 0) for i in range(n)]
+        return [r.get(reg + (i if self._ai(addr) else 0), 0) for i in range(n)]
 
     def write_i2c_block_data(self, addr, reg, data):
         r = self._regs(addr)
         for i, v in enumerate(data):
-            r[reg + i] = v
+            r[reg + (i if self._ai(addr) else 0)] = v
 
 
 def pca_regs(prescale=121, sleeping=True):

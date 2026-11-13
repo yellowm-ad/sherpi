@@ -76,9 +76,21 @@ def _led_base(ch: int) -> int:
     return 0x06 + 4 * ch
 
 
+# ⚠️ 블록 읽기/쓰기는 MODE1 의 자동 증가(AI) 비트가 켜져 있을 때만 다음 레지스터로 넘어간다.
+#    전원 직후(모터 시험 모드)에는 AI 가 꺼져 있어 블록으로 읽으면 같은 칸만 4번 읽힌다.
+#    → 한 바이트씩 읽고 쓴다 (MODE1 은 건드리지 않는다).
+def _rd4(bus, reg: int) -> list[int]:
+    return [bus.read_byte_data(C.I2C_ADDRESS, reg + i) for i in range(4)]
+
+
+def _wr4(bus, reg: int, data: list[int]) -> None:
+    for i, v in enumerate(data):
+        bus.write_byte_data(C.I2C_ADDRESS, reg + i, v)
+
+
 def _read_us(bus, ch: int, prescale: int) -> int | None:
     """채널 레지스터 → 펄스 폭(us). 출력 꺼짐이면 None"""
-    on_l, on_h, off_l, off_h = bus.read_i2c_block_data(C.I2C_ADDRESS, _led_base(ch), 4)
+    on_l, on_h, off_l, off_h = _rd4(bus, _led_base(ch))
     if off_h & 0x10:                          # FULL OFF
         return None
     ticks = ((off_h & 0x0F) << 8 | off_l) - ((on_h & 0x0F) << 8 | on_l)
@@ -99,12 +111,12 @@ def pca9685(bus, test_us: int) -> dict:
     # 시험값 → CH15 → 다시 읽기. 레지스터는 잠든(sleep) 상태에서도 쓰고 읽힌다.
     base = _led_base(TEST_CH)
     try:
-        saved = bus.read_i2c_block_data(C.I2C_ADDRESS, base, 4)
+        saved = _rd4(bus, base)
         ticks = round(test_us * freq * 4096 / 1_000_000)
         ticks = max(0, min(4095, ticks))
-        bus.write_i2c_block_data(C.I2C_ADDRESS, base, [0, 0, ticks & 0xFF, ticks >> 8])
+        _wr4(bus, base, [0, 0, ticks & 0xFF, ticks >> 8])
         back = _read_us(bus, TEST_CH, prescale)
-        bus.write_i2c_block_data(C.I2C_ADDRESS, base, saved)    # 원래대로
+        _wr4(bus, base, saved)                                 # 원래대로
         step = 1_000_000 / freq / 4096                         # 한 칸 (50Hz 면 4.9us)
         out["loop"] = {"sent": test_us, "back": back, "match": back is not None and abs(back - test_us) <= step + 0.5}
     except OSError:

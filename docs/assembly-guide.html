@@ -183,7 +183,7 @@ footer{margin-top:40px;color:var(--muted);font-size:13px}
 <div id="stages"></div>
 
 <footer>
-  셰르피 · 2026-11-12 작성. 기준 문서: <code>docs/ROBOT_BRIDGE.md</code>, <code>robot/bridge/config.py</code>. 로드셀 선 색은 CAS SBA 데이터시트, HX711 RATE 점퍼는 SparkFun 회로도 기준입니다. ESC(MJX H8P)의 서보 전원 전압은 공개 자료로 확인되지 않아 9단계에서 직접 측정합니다.
+  셰르피 · 2026-11-12 작성 · 2026-11-14 검토 반영. 기준 문서: <code>docs/ROBOT_BRIDGE.md</code>, <code>robot/bridge/config.py</code>. 로드셀 선 색은 CAS SBA 데이터시트, HX711 RATE 점퍼는 SparkFun 회로도 기준입니다. ESC(MJX H8P)의 서보 전원 전압은 공개 자료로 확인되지 않아 9단계에서 직접 측정합니다.
 </footer>
 </div>
 
@@ -474,7 +474,8 @@ watch -n 10 'vcgencmd measure_temp; vcgencmd get_throttled'`,
  cautions:[['danger','기판(PCB)을 금속판에 직접 붙이지 않습니다. 뒷면 납땜 점이 판에 닿아 합선됩니다. 금속판이면 나일론 스페이서로 띄우거나 절연 시트를 깝니다.'],['warn','양면테이프는 붙이기 전 알코올로 닦고, 30초 꾹 누른 뒤 1시간 지나 주행합니다.'],['info','브레드보드 고정은 시험용입니다. 주행 시험이 끝나면 납땜 기판(만능기판)으로 옮기는 것이 진동에 안전합니다.']],
  check:`# 고정이 끝나면: 차체를 손으로 30초 흔든 뒤
 i2cdetect -y 1                 # 36, 40, 70 그대로인지
-python3 robot/bridge/gps.py    # GPS 그대로 들어오는지`,
+cd ~/sherpy/robot && .venv/bin/python -m bridge.gps   # GPS 그대로 들어오는지
+# 또는 앱 [배선 점검] 한 번 — 단계별 ✓ 가 그대로인지`,
  pass:'<b>통과:</b> 흔든 뒤에도 장치가 그대로 보이고, 손으로 밀어 움직이는 부품이 없음.'}
 ];
 

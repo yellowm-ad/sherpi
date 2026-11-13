@@ -157,7 +157,7 @@ footer{margin-top:40px;color:var(--muted);font-size:13px}
       <tr><td>점퍼 F/F · M/M 40P, Grove↔암 점퍼</td><td><span class="pill p-ok">바로 사용</span></td><td>파이 핀(수) → 브레드보드(구멍)는 <b>M/F</b>가 필요. 없으면 F/F 끝에 M/M을 이어 대신 씀.</td></tr>
       <tr><td>Grove AS5600 (12-bit, v1.0)</td><td><span class="pill p-ok">바로 사용</span></td><td>Grove 단자 + DIR 스위치. 자석은 <b>지름 방향</b>이어야 함.</td></tr>
       <tr><td>PCA9685 (SunFounder) ×2</td><td><span class="pill p-ok">바로 사용</span></td><td>둘 다 주소 0x40 → <b>한 장만</b> 연결, 한 장은 예비.</td></tr>
-      <tr><td>TM1637 4자리 표시기</td><td><span class="pill p-info">개수 확인</span></td><td>사진엔 1개. 코드는 RED(장력)·BLUE(줄 길이) 2개 기준.</td></tr>
+      <tr><td>4자리 표시기 ×2 (DIYmore TM1637)</td><td><span class="pill p-ok">바로 사용</span></td><td>2개 확인. 핀 순서 <b>CLK · DIO · GND · 5V</b>. 역할로 ①장력 · ②줄 길이라고 부름(LED 색과 무관).</td></tr>
       <tr><td>SparkFun HX711</td><td><span class="pill p-solder">납땜 필요</span></td><td>핀 헤더 미장착. 기본 10회/초(RATE 점퍼 닫힘).</td></tr>
       <tr><td>CAS SBA-50L 로드셀</td><td><span class="pill p-solder">납땜 필요</span></td><td>50kgf · 3.0mV/V. 빨강 E+, 검정 E−, 초록 신호+, 흰 신호−, 투명 실드.</td></tr>
       <tr><td>NEO-6M GPS (GPS6MV2)</td><td><span class="pill p-solder">납땜 필요</span></td><td>VCC·RX·TX·GND 구멍에 헤더 없음. 패치 안테나는 u.FL.</td></tr>
@@ -284,24 +284,24 @@ EOF`,
  pass:'<b>통과:</b> 36 · 40 · 70 세 개.'+'<br><b>웹 확인:</b> 로봇 → 로봇 관리 → <b>배선 점검</b> — 4단계 PCA9685 ✓ + <b>시험값 왕복</b> ✓ (웹이 정한 µs 값이 드라이버 레지스터에 그대로 써지고 읽힘 = 웹 → 구동부 신호 경로 확인).'},
 
 {id:'s5',no:'5',title:'표시기 TM1637 ×2',tag:['p-ok','납땜 없음'],
- goal:'본체 표시기 두 개(RED = 장력 N, BLUE = 줄 길이 cm)를 연결합니다. 이 두 개는 브레드보드 허브가 아니라 파이 핀에 직접 연결합니다.',
+ goal:'본체 표시기 두 개(<b>① 장력</b> N, <b>② 줄 길이</b> cm)를 연결합니다. 신호선(CLK·DIO)은 브레드보드 허브가 아니라 파이 핀에 직접, 전원(GND·5V 핀)만 레일에 꽂습니다. ①·②는 역할 이름이고 LED 색(빨강·파랑 등)과는 상관없습니다 — 뒷면에 테이프로 ①·② 라벨을 붙여 두세요.',
  fig:{pi:1,bb:1,ctx:HUB,h:392,mods:[
-   {id:'r',x:610,y:20,w:150,t:'TM1637 RED (장력)',pins:[{n:'CLK',s:'L'},{n:'DIO',s:'L'},{n:'VCC',s:'L'},{n:'GND',s:'L'}]},
-   {id:'b',x:610,y:190,w:150,t:'TM1637 BLUE (줄 길이)',pins:[{n:'CLK',s:'L'},{n:'DIO',s:'L'},{n:'VCC',s:'L'},{n:'GND',s:'L'}]}],
+   {id:'r',x:610,y:20,w:150,t:'표시기 ① 장력',pins:[{n:'CLK',s:'L'},{n:'DIO',s:'L'},{n:'GND',s:'L'},{n:'5V',s:'L'}]},
+   {id:'b',x:610,y:190,w:150,t:'표시기 ② 줄 길이',pins:[{n:'CLK',s:'L'},{n:'DIO',s:'L'},{n:'GND',s:'L'},{n:'5V',s:'L'}]}],
   wires:[
-   {f:'m:r.GND',t:'bb:rg1:496',c:'gnd',lane:496,s:'RED <b>GND</b> → GND 레일'},
-   {f:'pi:38',t:'m:r.CLK',c:'grn',via:352,l1:250,l2:594,s:'Pi <b>38번 핀(GPIO20)</b> → RED <b>CLK</b>'},
-   {f:'pi:40',t:'m:r.DIO',c:'pur',via:360,l1:242,l2:602,s:'Pi <b>40번 핀(GPIO21)</b> → RED <b>DIO</b>'},
-   {f:'m:r.VCC',t:'bb:r3:484',c:'v3',lane:484,s:'RED <b>VCC</b> → <b>3.3V</b> 레일'},
-   {f:'m:b.GND',t:'bb:rg2:496',c:'gnd',lane:496,s:'BLUE <b>GND</b> → GND 레일(아래)'},
-   {f:'pi:35',t:'m:b.CLK',c:'grn',via:368,l1:266,l2:578,s:'Pi <b>35번 핀(GPIO19)</b> → BLUE <b>CLK</b>'},
-   {f:'pi:37',t:'m:b.DIO',c:'pur',via:376,l1:258,l2:586,s:'Pi <b>37번 핀(GPIO26)</b> → BLUE <b>DIO</b>'},
-   {f:'m:b.VCC',t:'bb:r3:460',c:'v3',lane:460,s:'BLUE <b>VCC</b> → <b>3.3V</b> 레일'}]},
- cautions:[['warn','사진에는 표시기가 1개만 보입니다. 하나뿐이면 RED(장력)만 먼저 연결하세요. 코드는 없는 쪽을 건너뜁니다.'],['danger','VCC는 3.3V. 모듈의 CLK·DIO 풀업이 VCC에 걸려 있어 5V면 파이 핀에 5V가 들어갑니다. 3.3V에서는 조금 어둡지만 정상입니다.'],['info','파이 핀 35·37·38·40은 헤더 맨 끝(USB 포트 쪽) 네 줄입니다. 2개씩 짝이라 헷갈리기 쉬우니 꽂은 뒤 <code>pinout</code> 그림과 한 번 더 대조합니다.']],
+   {f:'m:r.GND',t:'bb:rg1:496',c:'gnd',lane:496,s:'① <b>GND</b> → GND 레일'},
+   {f:'pi:38',t:'m:r.CLK',c:'grn',via:352,l1:250,l2:594,s:'Pi <b>38번 핀(GPIO20)</b> → ① <b>CLK</b> (가장자리 줄, 끝에서 2번째)'},
+   {f:'pi:40',t:'m:r.DIO',c:'pur',via:360,l1:242,l2:602,s:'Pi <b>40번 핀(GPIO21)</b> → ① <b>DIO</b> (가장자리 줄, 맨 끝)'},
+   {f:'m:r.5V',t:'bb:r3:484',c:'v3',lane:484,s:'① <b>5V 핀</b> → <b>3.3V</b> 레일 (핀 이름은 5V지만 3.3V에 꽂음)'},
+   {f:'m:b.GND',t:'bb:rg2:496',c:'gnd',lane:496,s:'② <b>GND</b> → GND 레일(아래)'},
+   {f:'pi:35',t:'m:b.CLK',c:'grn',via:368,l1:266,l2:578,s:'Pi <b>35번 핀(GPIO19)</b> → ② <b>CLK</b> (안쪽 줄, 끝에서 3번째)'},
+   {f:'pi:37',t:'m:b.DIO',c:'pur',via:376,l1:258,l2:586,s:'Pi <b>37번 핀(GPIO26)</b> → ② <b>DIO</b> (안쪽 줄, 끝에서 2번째 — 맨 끝 39번은 GND)'},
+   {f:'m:b.5V',t:'bb:r3:460',c:'v3',lane:460,s:'② <b>5V 핀</b> → <b>3.3V</b> 레일'}]},
+ cautions:[['danger','<b>보드에 "5V"라고 써 있어도 3.3V 레일에 꽂습니다.</b> 이 핀이 모듈의 전원이자 CLK·DIO 풀업 전원이라, 5V에 꽂으면 파이 35·37·38·40번 핀에 5V가 들어갑니다. 3.3V에서는 조금 어둡지만 정상입니다.'],['warn','핀 순서가 <b>CLK · DIO · GND · 5V</b>입니다(VCC가 맨 끝, GND가 세 번째). 다른 모듈처럼 GND를 맨 끝으로 생각하고 꽂으면 전원이 거꾸로 들어갑니다.'],['info','①·②는 역할 이름입니다. 코드·앱의 옛 이름 RED(=①)·BLUE(=②)와 같은 뜻이고 LED 색과는 상관없습니다. 하나만 있으면 ①부터.'],['info','파이 핀 35·37·38·40은 헤더 맨 끝(USB 포트 쪽) 네 줄입니다. 2개씩 짝이라 헷갈리기 쉬우니 꽂은 뒤 <code>pinout</code> 그림과 한 번 더 대조합니다.']],
  check:`# 웹 [배선 점검]이 표시기에 4자리 숫자를 직접 띄워 줍니다 (아래는 터미널로 할 때)
 ~/sherpy/robot/.venv/bin/pip install raspberrypi-tm1637 rpi-lgpio   # 시스템 pip 는 막혀 있음 → venv
-~/sherpy/robot/.venv/bin/python -c "import tm1637; tm1637.TM1637(clk=20,dio=21).number(1234); tm1637.TM1637(clk=19,dio=26).number(5678)"`,
- pass:'<b>통과:</b> RED에 1234, BLUE에 5678.'+'<br><b>웹 확인:</b> 로봇 → 로봇 관리 → <b>배선 점검</b> — 화면에 나온 4자리 숫자가 두 표시기에 뜨고 RED·BLUE ✓.'},
+~/sherpy/robot/.venv/bin/python -c "import tm1637; tm1637.TM1637(clk=20,dio=21).number(1234); tm1637.TM1637(clk=19,dio=26).number(5678)"   # ①=1234, ②=5678`,
+ pass:'<b>통과:</b> ①에 1234, ②에 5678.'+'<br><b>웹 확인:</b> 로봇 → 로봇 관리 → <b>배선 점검</b> — 화면에 나온 4자리 숫자가 두 표시기에 뜨고 ①·② ✓.'},
 
 {id:'s6',no:'6',title:'E-stop 물리 버튼',tag:['p-buy','구매 후'],
  goal:'네트워크와 상관없이 누르면 바로 멈추는 버튼입니다. 모터를 연결하기 전에 반드시 먼저 답니다.',
@@ -428,7 +428,7 @@ vcgencmd pmic_read_adc EXT5V_V     # 5V 입력 전압, 4.9V 이상이면 양호
   ['10','카메라','뚜껑 앞 모서리, 가능한 한 높게. 릴과 줄이 화면 아래쪽만 살짝 보이게 하고 앞에 투명창이나 구멍.'],
   ['11','E-stop 버튼','뚜껑 위 뒤쪽 · 사람 손이 바로 닿는 곳. 22mm 패널 구멍에 너트로 고정.'],
   ['12','GPS 안테나','뚜껑 위 <b>뒤쪽</b>(배터리 칸 위) · 은색 면이 하늘. Pi가 앞으로 갔으니 Pi와 USB3 포트에서 10cm 이상 떨어지도록 뒤로 옮깁니다. E-stop과는 손이 걸리지 않게 조금 띄웁니다.'],
-  ['13','TM1637 표시기 ×2','뒤 벽 창. 산책하는 사람이 보는 방향입니다.'],
+  ['13','표시기 ①·② (TM1637)','뒤 벽 창. 산책하는 사람이 보는 방향입니다.'],
   ['14','환기','흡기는 앞 벽 아래, 배기는 Pi 팬 위 뚜껑. 완전 밀폐는 금지입니다.']],
  dims:[
   ['차체 MJX H8P','전장 690 × 폭 260 × 높이 295 · 휠베이스 373 · 윤거 240 · 타이어 Ø135','판매처 사양','판매처마다 ±10mm 차이'],
@@ -614,8 +614,8 @@ document.getElementById('pintable').innerHTML=[
  ['5V 레일 (7단계부터)','5V','Pi 4번 핀','v5'],
  ['AS5600 (0x36)','GND · VCC · SDA · SCL','GND · 3.3V 레일 · SDA줄 · SCL줄','gnd,red,wht,yel'],
  ['PCA9685 (0x40)','GND · SCL · SDA · VCC','GND · SCL줄 · SDA줄 · 3.3V 레일 (OE·V+ 비움)','gnd,scl,sda,v3'],
- ['TM1637 RED','CLK · DIO','Pi 38번(GPIO20) · 40번(GPIO21)','grn,pur'],
- ['TM1637 BLUE','CLK · DIO','Pi 35번(GPIO19) · 37번(GPIO26)','grn,pur'],
+ ['표시기 ① 장력','CLK · DIO · GND · 5V','Pi 38번(GPIO20) · 40번(GPIO21) · GND 레일 · <b>3.3V 레일</b>','grn,pur,gnd,v3'],
+ ['표시기 ② 줄 길이','CLK · DIO · GND · 5V','Pi 35번(GPIO19) · 37번(GPIO26) · GND 레일 · <b>3.3V 레일</b>','grn,pur,gnd,v3'],
  ['E-stop','단자 1 · 단자 2','Pi 11번(GPIO17) · GND','grn,gnd'],
  ['HX711','VDD · VCC · DAT · CLK','3.3V · 5V · Pi 29번(GPIO5) · 31번(GPIO6)','v3,v5,grn,pur'],
  ['GPS','TX · RX · VCC','Pi 10번(RXD) · 8번(TXD) · 5V','grn,pur,v5'],

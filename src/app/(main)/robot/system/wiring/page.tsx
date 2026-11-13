@@ -233,7 +233,7 @@ function stageList(w: Wiring, h: RobotHealth): Stage[] {
   const tmItem = (name: string, t: Wiring["tmRed"], pins: string): Item => ({
     label: name, ok: t?.ok ?? null,
     value: t?.ok ? `${String(t.code ?? 0).padStart(4, "0")} 표시` : t?.ok === false ? "응답 없음" : t?.error ?? "—",
-    hint: `CLK·DIO 를 ${pins} 에 꽂았는지, 둘이 바뀌지 않았는지, VCC 가 3.3V 레일인지 확인. 표시기에 숫자가 떠야 해요.`,
+    hint: `CLK·DIO 를 ${pins} 에 꽂았는지, 둘이 바뀌지 않았는지 확인. 모듈 핀 순서는 CLK·DIO·GND·5V — "5V" 핀은 3.3V 레일에. 표시기에 숫자가 떠야 해요.`,
   });
 
   const magnetTxt = { ok: "자석 OK", weak: "자석 약함 → 더 가까이", strong: "자석 강함 → 더 멀리", none: "자석 없음" } as const;
@@ -263,9 +263,9 @@ function stageList(w: Wiring, h: RobotHealth): Stage[] {
       { label: "시험값 왕복 (CH15)", ok: p?.loop ? p.loop.match : null, value: p?.loop ? `${p.loop.sent} → ${p.loop.back ?? "—"}µs` : "—",
         hint: "웹에서 정한 값이 드라이버에 그대로 써지는지. 다르면 SDA·SCL 점퍼 접촉 불량." },
     ] },
-    { no: "5", title: "표시기 TM1637", items: [
-      tmItem("RED (장력)", w.tmRed, "38번(GPIO20)·40번(GPIO21)"),
-      tmItem("BLUE (줄 길이)", w.tmBlue, "35번(GPIO19)·37번(GPIO26)"),
+    { no: "5", title: "표시기 ①·② (TM1637)", items: [
+      tmItem("① 장력", w.tmRed, "38번(GPIO20)·40번(GPIO21)"),
+      tmItem("② 줄 길이", w.tmBlue, "35번(GPIO19)·37번(GPIO26)"),
     ] },
     { no: "6", title: "E-stop 버튼", items: [
       { label: "눌렀다 뗌 감지", ok: es?.ok ?? null,

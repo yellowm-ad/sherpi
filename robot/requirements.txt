@@ -27,7 +27,9 @@ hx711-rpi-py>=1.65.0
 adafruit-circuitpython-busdevice>=5.2.9
 
 # ── TM1637 7세그먼트 LED ×2 ─────────────────
-raspberrypi-tm1637>=1.0.0
+# ⚠️ 의존성으로 진짜 RPi.GPIO 를 끌어와 rpi-lgpio 를 가린다 → 따로 설치:  pip install --no-deps raspberrypi-tm1637
+#    (배선 점검 wiring.py 는 이 라이브러리 없이 lgpio 로 직접 표시한다)
+# raspberrypi-tm1637>=1.0.0
 
 # ── 카메라 (Pi 5 = libcamera / picamera2) ───
 # apt로 설치하는 편이 안정적: sudo apt install -y python3-picamera2

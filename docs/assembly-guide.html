@@ -299,7 +299,7 @@ EOF`,
    {f:'m:b.5V',t:'bb:r3:460',c:'v3',lane:460,s:'② <b>5V 핀</b> → <b>3.3V</b> 레일'}]},
  cautions:[['danger','<b>보드에 "5V"라고 써 있어도 3.3V 레일에 꽂습니다.</b> 이 핀이 모듈의 전원이자 CLK·DIO 풀업 전원이라, 5V에 꽂으면 파이 35·37·38·40번 핀에 5V가 들어갑니다. 3.3V에서는 조금 어둡지만 정상입니다.'],['warn','핀 순서가 <b>CLK · DIO · GND · 5V</b>입니다(VCC가 맨 끝, GND가 세 번째). 다른 모듈처럼 GND를 맨 끝으로 생각하고 꽂으면 전원이 거꾸로 들어갑니다.'],['info','①·②는 역할 이름입니다. 코드·앱의 옛 이름 RED(=①)·BLUE(=②)와 같은 뜻이고 LED 색과는 상관없습니다. 하나만 있으면 ①부터.'],['info','파이 핀 35·37·38·40은 헤더 맨 끝(USB 포트 쪽) 네 줄입니다. 2개씩 짝이라 헷갈리기 쉬우니 꽂은 뒤 <code>pinout</code> 그림과 한 번 더 대조합니다.']],
  check:`# 웹 [배선 점검]이 표시기에 4자리 숫자를 직접 띄워 줍니다 (아래는 터미널로 할 때)
-~/sherpy/robot/.venv/bin/pip install raspberrypi-tm1637 rpi-lgpio   # 시스템 pip 는 막혀 있음 → venv
+~/sherpy/robot/.venv/bin/pip install --no-deps raspberrypi-tm1637   # --no-deps 필수: 의존성으로 진짜 RPi.GPIO 가 깔리면 Pi 5 에서 'Cannot determine SOC peripheral base address' (rpi-lgpio 는 시스템에 이미 있음)
 ~/sherpy/robot/.venv/bin/python -c "import tm1637; tm1637.TM1637(clk=20,dio=21).number(1234); tm1637.TM1637(clk=19,dio=26).number(5678)"   # ①=1234, ②=5678`,
  pass:'<b>통과:</b> ①에 1234, ②에 5678.'+'<br><b>웹 확인:</b> 로봇 → 로봇 관리 → <b>배선 점검</b> — 화면에 나온 4자리 숫자가 두 표시기에 뜨고 ①·② ✓.'},
 

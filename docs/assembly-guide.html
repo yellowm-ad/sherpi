@@ -157,7 +157,7 @@ footer{margin-top:40px;color:var(--muted);font-size:13px}
       <tr><td>점퍼 F/F · M/M 40P, Grove↔암 점퍼</td><td><span class="pill p-ok">바로 사용</span></td><td>파이 핀(수) → 브레드보드(구멍)는 <b>M/F</b>가 필요. 없으면 F/F 끝에 M/M을 이어 대신 씀.</td></tr>
       <tr><td>Grove AS5600 (12-bit, v1.0)</td><td><span class="pill p-ok">바로 사용</span></td><td>Grove 단자 + DIR 스위치. 자석은 <b>지름 방향</b>이어야 함.</td></tr>
       <tr><td>PCA9685 (SunFounder) ×2</td><td><span class="pill p-ok">바로 사용</span></td><td>둘 다 주소 0x40 → <b>한 장만</b> 연결, 한 장은 예비.</td></tr>
-      <tr><td>4자리 표시기 ×2 (DIYmore TM1637)</td><td><span class="pill p-ok">바로 사용</span></td><td>2개 확인. 핀 순서 <b>CLK · DIO · GND · 5V</b>. 역할로 ①장력 · ②줄 길이라고 부름(LED 색과 무관).</td></tr>
+      <tr><td>4자리 표시기 ×2 (DIYmore TM1637)</td><td><span class="pill p-solder">납땜 필요</span></td><td>2개 확인. <b>4핀 헤더가 구멍에 끼워만 져 있음 → 헤더 납땜</b>(안 하면 전원 LED가 깜빡이고 칩이 대답 안 함). 핀 순서 <b>CLK · DIO · GND · 5V</b>. 역할로 ①장력 · ②줄 길이라고 부름(LED 색과 무관).</td></tr>
       <tr><td>SparkFun HX711</td><td><span class="pill p-solder">납땜 필요</span></td><td>핀 헤더 미장착. 기본 10회/초(RATE 점퍼 닫힘).</td></tr>
       <tr><td>CAS SBA-50L 로드셀</td><td><span class="pill p-solder">납땜 필요</span></td><td>50kgf · 3.0mV/V. 빨강 E+, 검정 E−, 초록 신호+, 흰 신호−, 투명 실드.</td></tr>
       <tr><td>NEO-6M GPS (GPS6MV2)</td><td><span class="pill p-solder">납땜 필요</span></td><td>VCC·RX·TX·GND 구멍에 헤더 없음. 패치 안테나는 u.FL.</td></tr>
@@ -283,7 +283,7 @@ EOF`,
 # 70 = PCA9685 의 '전체 호출' 주소 — 정상입니다`,
  pass:'<b>통과:</b> 36 · 40 · 70 세 개.'+'<br><b>웹 확인:</b> 로봇 → 로봇 관리 → <b>배선 점검</b> — 4단계 PCA9685 ✓ + <b>시험값 왕복</b> ✓ (웹이 정한 µs 값이 드라이버 레지스터에 그대로 써지고 읽힘 = 웹 → 구동부 신호 경로 확인).'},
 
-{id:'s5',no:'5',title:'표시기 TM1637 ×2',tag:['p-ok','납땜 없음'],
+{id:'s5',no:'5',title:'표시기 TM1637 ×2',tag:['p-solder','헤더 납땜 후'],
  goal:'본체 표시기 두 개(<b>① 장력</b> N, <b>② 줄 길이</b> cm)를 연결합니다. 신호선(CLK·DIO)은 브레드보드 허브가 아니라 파이 핀에 직접, 전원(GND·5V 핀)만 레일에 꽂습니다. ①·②는 역할 이름이고 LED 색(빨강·파랑 등)과는 상관없습니다 — 뒷면에 테이프로 ①·② 라벨을 붙여 두세요.',
  fig:{pi:1,bb:1,ctx:HUB,h:392,mods:[
    {id:'r',x:610,y:20,w:150,t:'표시기 ① 장력',pins:[{n:'CLK',s:'L'},{n:'DIO',s:'L'},{n:'GND',s:'L'},{n:'5V',s:'L'}]},
@@ -297,7 +297,7 @@ EOF`,
    {f:'pi:35',t:'m:b.CLK',c:'grn',via:368,l1:266,l2:578,s:'Pi <b>35번 핀(GPIO19)</b> → ② <b>CLK</b> (안쪽 줄, 끝에서 3번째)'},
    {f:'pi:37',t:'m:b.DIO',c:'pur',via:376,l1:258,l2:586,s:'Pi <b>37번 핀(GPIO26)</b> → ② <b>DIO</b> (안쪽 줄, 끝에서 2번째 — 맨 끝 39번은 GND)'},
    {f:'m:b.5V',t:'bb:r3:460',c:'v3',lane:460,s:'② <b>5V 핀</b> → <b>3.3V</b> 레일'}]},
- cautions:[['danger','<b>보드에 "5V"라고 써 있어도 3.3V 레일에 꽂습니다.</b> 이 핀이 모듈의 전원이자 CLK·DIO 풀업 전원이라, 5V에 꽂으면 파이 35·37·38·40번 핀에 5V가 들어갑니다. 3.3V에서는 조금 어둡지만 정상입니다.'],['warn','핀 순서가 <b>CLK · DIO · GND · 5V</b>입니다(VCC가 맨 끝, GND가 세 번째). 다른 모듈처럼 GND를 맨 끝으로 생각하고 꽂으면 전원이 거꾸로 들어갑니다.'],['info','①·②는 역할 이름입니다. 코드·앱의 옛 이름 RED(=①)·BLUE(=②)와 같은 뜻이고 LED 색과는 상관없습니다. 하나만 있으면 ①부터.'],['info','파이 핀 35·37·38·40은 헤더 맨 끝(USB 포트 쪽) 네 줄입니다. 2개씩 짝이라 헷갈리기 쉬우니 꽂은 뒤 <code>pinout</code> 그림과 한 번 더 대조합니다.']],
+ cautions:[['danger','<b>먼저 4핀 헤더를 보드에 납땜합니다.</b> 헤더를 구멍에 끼워만 두면 접촉이 끊겼다 붙었다 해서 전원 LED가 깜빡이고 칩이 대답하지 않습니다(11-14 실물 확인). 이웃 핀끼리 납이 붙으면 GND·5V 합선 — 납땜 후 핀 사이 틈을 눈으로 확인.'],['danger','<b>보드에 "5V"라고 써 있어도 3.3V 레일에 꽂습니다.</b> 이 핀이 모듈의 전원이자 CLK·DIO 풀업 전원이라, 5V에 꽂으면 파이 35·37·38·40번 핀에 5V가 들어갑니다. 3.3V에서는 조금 어둡지만 정상입니다.'],['warn','핀 순서가 <b>CLK · DIO · GND · 5V</b>입니다(VCC가 맨 끝, GND가 세 번째). 다른 모듈처럼 GND를 맨 끝으로 생각하고 꽂으면 전원이 거꾸로 들어갑니다.'],['info','①·②는 역할 이름입니다. 코드·앱의 옛 이름 RED(=①)·BLUE(=②)와 같은 뜻이고 LED 색과는 상관없습니다. 하나만 있으면 ①부터.'],['info','파이 핀 35·37·38·40은 헤더 맨 끝(USB 포트 쪽) 네 줄입니다. 2개씩 짝이라 헷갈리기 쉬우니 꽂은 뒤 <code>pinout</code> 그림과 한 번 더 대조합니다.']],
  check:`# 웹 [배선 점검]이 표시기에 4자리 숫자를 직접 띄워 줍니다 (아래는 터미널로 할 때)
 ~/sherpy/robot/.venv/bin/pip install --no-deps raspberrypi-tm1637   # --no-deps 필수: 의존성으로 진짜 RPi.GPIO 가 깔리면 Pi 5 에서 'Cannot determine SOC peripheral base address' (rpi-lgpio 는 시스템에 이미 있음)
 ~/sherpy/robot/.venv/bin/python -c "import tm1637; tm1637.TM1637(clk=20,dio=21).number(1234); tm1637.TM1637(clk=19,dio=26).number(5678)"   # ①=1234, ②=5678`,

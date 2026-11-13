@@ -9,6 +9,7 @@
     VISION_ON / VISION_OFF   자율주행 인식 테스트 켜기·끄기 (bridge/vision.py — 카메라를 송출과 나눠 쓸 수 없어 송출은 끈다)
     VISION_SET / VISION_MARK 인식 판단 값 바꾸기 / '놓침·괜히 멈춤·잘함' 표본 저장 (모터는 움직이지 않음)
     SYS_CHECK                연결·전원·부품 전체 점검 후 보고
+    WIRING_CHECK             배선 점검 — 조립 단계별 부품 응답 + 웹 시험값이 구동부 드라이버까지 그대로 가는지 (bridge/wiring.py)
     REBOOT / POWER_OFF       다시 시작 / 안전하게 끄기 (주행 중이면 거부)
     JOY_ON / JOY_OFF         수동 조종(조이스틱) 연결 켜기·끄기 (bridge/joystick.py — 폰과 터널로 직접 연결)
     ESTOP                    바퀴 즉시 정지 + 조종 거부 (정지 해제 = RESUME)
@@ -41,6 +42,8 @@ from bridge.streamer import Streamer  # noqa: E402
 from bridge import system  # noqa: E402
 from bridge.motor import Motor  # noqa: E402
 from bridge.joystick import Joystick  # noqa: E402
+from bridge.estop import EstopButton  # noqa: E402
+from bridge import wiring  # noqa: E402
 try:  # numpy 가 없어도 에이전트(연결·끄기 버튼)는 살아 있어야 한다
     from bridge.vision import Vision  # noqa: E402
 except Exception as _e:  # noqa: BLE001
@@ -57,7 +60,7 @@ HEADERS = {"Authorization": f"Bearer {C.API_KEY}"}
 HEALTH_URL = f"{C.SERVER_URL}/api/robots/{C.ROBOT_ID}/health"
 HEALTH_EVERY = 10.0  # 초
 
-state = {"mode": "idle", "watchdog": False, "busy": None, "last_full": {}, "shutting": None}
+state = {"mode": "idle", "watchdog": False, "busy": None, "last_full": {}, "shutting": None, "wiring": None}
 streamer = Streamer()
 vision = Vision()
 motor = Motor()
@@ -98,6 +101,7 @@ def teach_close() -> None:
 
 
 joystick = Joystick(motor, joy_allow, joy_input)
+estop_btn: EstopButton | None = None
 down = CommandDownlink()
 up = TelemetryUplink()
 stop_evt = threading.Event()
@@ -126,6 +130,9 @@ def push_health(full: bool = False, extra: dict | None = None) -> None:
     h["joyError"] = joystick.error
     h["motorLive"] = motor.live
     h["motorError"] = motor.error
+    h["estopBtn"] = estop_btn.ok if estop_btn else False
+    if state["wiring"]:
+        h["wiring"] = state["wiring"]       # 마지막 배선 점검 결과는 계속 보여준다
     if state["shutting"]:
         h["shuttingDown"] = state["shutting"]   # 꺼질 때까지 계속 '꺼지는 중'으로 보이게
     if extra:
@@ -241,6 +248,41 @@ def power_action(kind: str) -> None:
     t.start()
 
 
+def do_estop() -> None:
+    state["mode"] = "estop"         # 먼저 상태를 바꿔 새 조종 신호를 막고
+    joystick.halt()                 # 바퀴 즉시 정지
+    motor.stop()
+    teach_close()
+
+
+def on_estop_button() -> None:
+    """본체 E-stop 버튼 — 네트워크와 무관하게 GPIO 인터럽트로 바로 들어온다. 해제는 앱 [정지 해제]."""
+    do_estop()
+    log("🛑 E-stop 버튼 — 즉시 정지")
+
+
+def _int_in(v, lo: int, hi: int, default: int) -> int:
+    try:
+        v = int(v)
+    except (TypeError, ValueError):
+        return default
+    return v if lo <= v <= hi else default
+
+
+def wiring_check(payload: dict) -> None:
+    test_us = _int_in(payload.get("us"), 1000, 2000, 1500)
+    code = _int_in(payload.get("code"), 0, 9999, 1234)
+    log(f"🔌 배선 점검 — 시험값 {test_us}us · 표시 {code:04d} (E-stop 은 {wiring.ESTOP_WATCH_SEC:.0f}초 안에 눌렀다 떼기)")
+    try:
+        r = wiring.check_all(test_us, code, estop_btn.counts if estop_btn else (lambda: None))
+    except Exception as e:  # noqa: BLE001 — 점검이 죽어도 에이전트는 살아 있어야 한다
+        log(f"❌ 배선 점검 실패: {e}")
+        r = {"error": str(e)[:200], "testUs": test_us, "code": code, "at": int(time.time())}
+    r["reqAt"] = _int_in(payload.get("reqAt"), 0, 2**53, 0)   # 웹이 보낸 시각 — 웹이 '내 요청 결과'인지 맞춰 본다
+    state["wiring"] = r
+    log(f"   결과: {r}")
+
+
 def on_command(ctype: str, payload: dict) -> None:
     log(f"📩 {ctype}")
     if ctype == "CAMERA_ON":
@@ -263,6 +305,8 @@ def on_command(ctype: str, payload: dict) -> None:
         in_background("joy_off", joy_off)
     elif ctype == "SYS_CHECK":
         in_background("check", lambda: None)
+    elif ctype == "WIRING_CHECK":
+        in_background("wiring", lambda: wiring_check(payload))
     elif ctype in ("REBOOT", "POWER_OFF"):
         if state["mode"] in ("follow", "teach"):
             log("⛔ 주행 중에는 끄거나 다시 시작할 수 없어요")
@@ -272,10 +316,7 @@ def on_command(ctype: str, payload: dict) -> None:
         else:
             power_action("reboot" if ctype == "REBOOT" else "poweroff")
     elif ctype == "ESTOP":
-        state["mode"] = "estop"         # 먼저 상태를 바꿔 새 조종 신호를 막고
-        joystick.halt()                 # 바퀴 즉시 정지
-        motor.stop()
-        teach_close()
+        do_estop()
     elif ctype in ("PAUSE", "STOP_TEACH"):
         if state["mode"] != "estop":    # 긴급 정지는 [정지 해제]로만 풀린다
             state["mode"] = "idle"
@@ -335,6 +376,10 @@ def wait_for_server() -> None:
 def main() -> None:
     if not C.API_KEY:
         sys.exit("❌ SHERPY_API_KEY 가 비어 있어요. robot/.env 를 확인하세요.")
+    global estop_btn
+    estop_btn = EstopButton(on_press=on_estop_button)   # 버튼이 아직 없어도 괜찮다 (풀업이라 '안 눌림')
+    if not estop_btn.ok:
+        log("⚠️ E-stop 버튼 감시를 못 켰어요 (gpiozero/lgpio 확인)")
     wait_for_server()
     up.start(snapshot)
     down.start(on_command, on_watchdog)
@@ -353,6 +398,8 @@ def main() -> None:
         joystick.stop()
         motor.close()
         teach_close()
+        if estop_btn:
+            estop_btn.close()
         streamer.stop()
         vision.stop()
         up.stop()

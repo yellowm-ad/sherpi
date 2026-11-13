@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { Play, Pause, CircleDot, Square, Gauge, Route as RouteIcon, Check, Clock, X, Loader, Gamepad2, Bot } from "lucide-react";
+import { Play, Pause, CircleDot, Square, Gauge, Route as RouteIcon, Check, Clock, X, Loader, Gamepad2, Bot, Cable, ChevronRight } from "lucide-react";
 import { useRobot } from "../RobotProvider";
 import { sendCommand } from "@/hooks/useRobotStream";
 import PageHeader from "@/components/ui/PageHeader";
@@ -68,6 +69,14 @@ export default function RobotControl() {
   return (
     <div className="px-4">
       <div className="-mx-4 mb-3"><PageHeader title="주행 제어 · 코스" back /></div>
+
+      {!demo && (
+        <Link href="/robot/system/wiring" className="press card mb-3 flex items-center gap-3 p-3">
+          <Cable size={18} className="text-sherpy-600" />
+          <span className="min-w-0 flex-1 text-xs text-body"><b className="text-ink">배선 점검</b> · 조립 중이면 먼저 부품 연결과 신호 경로를 확인하세요</span>
+          <ChevronRight size={16} className="text-muted" />
+        </Link>
+      )}
 
       <section className="card p-4">
         <div className="flex items-center justify-between text-sm">

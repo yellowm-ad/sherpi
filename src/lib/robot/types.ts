@@ -50,6 +50,7 @@ export const COMMAND_TYPES = [
   "CAMERA_ON",
   "CAMERA_OFF",
   "SYS_CHECK",
+  "WIRING_CHECK", // 배선 점검 (robot/bridge/wiring.py) — payload { us: 1000~2000 시험값, code: 0~9999 표시, reqAt }
   "REBOOT",
   "POWER_OFF",
   // 자율주행 인식 테스트 (robot/bridge/vision.py) — 판단만 보여 주고 모터는 움직이지 않는다
@@ -70,6 +71,32 @@ export const CONFIRM_COMMANDS = ["REBOOT", "POWER_OFF"] as const;
  * 로봇이 보내는 값이므로 모양·길이를 엄격히 제한해서 저장한다.
  */
 const nb = z.boolean().nullable().optional();
+
+/** 배선 점검 결과 (robot/bridge/wiring.py) — 조립 가이드 단계별 부품 응답 */
+const bnull = z.boolean().nullable();
+const err = z.string().max(120).optional();
+const usN = z.number().int().min(0).max(30_000).nullable().optional();
+export const WiringSchema = z.object({
+  hub: z.object({ i2c: z.boolean(), uart: z.boolean() }).optional(),
+  as5600: z.object({ ok: bnull, magnet: z.enum(["ok", "weak", "strong", "none"]).optional(), angle: z.number().int().min(0).max(4095).optional(), error: err }).optional(),
+  pca9685: z.object({
+    ok: bnull, awake: z.boolean().optional(), freqHz: z.number().min(0).max(2000).optional(),
+    loop: z.object({ sent: z.number().int(), back: usN, match: z.boolean() }).optional(),
+    steerUs: usN, throttleUs: usN, error: err,
+  }).optional(),
+  tmRed: z.object({ ok: bnull, code: z.number().int().optional(), error: err }).optional(),
+  tmBlue: z.object({ ok: bnull, code: z.number().int().optional(), error: err }).optional(),
+  hx711: z.object({ ok: bnull, raw: z.array(z.number().int()).max(10).optional(), spread: z.number().int().optional(), cell: z.enum(["ok", "bad"]).optional(), partial: z.boolean().optional(), error: err }).optional(),
+  gps: z.object({ ok: bnull, port: z.boolean().optional(), bytes: z.number().int().optional(), sentences: z.number().int().optional(), sats: z.number().int().nullable().optional(), fix: z.boolean().optional(), error: err }).optional(),
+  estop: z.object({ ok: bnull, pressed: z.number().int().optional(), released: z.number().int().optional(), error: err }).optional(),
+  testUs: z.number().int().optional(),
+  code: z.number().int().optional(),
+  at: z.number().int(),
+  reqAt: z.number().int().optional(),
+  tookMs: z.number().int().optional(),
+  error: z.string().max(200).optional(),
+});
+export type Wiring = z.infer<typeof WiringSchema>;
 export const HealthSchema = z.object({
   wifi: z.object({ ssid: z.string().max(64).nullable(), signal: z.number().int().min(0).max(100).nullable() }),
   ip: z.string().ip({ version: "v4" }).nullable(),
@@ -90,7 +117,7 @@ export const HealthSchema = z.object({
   gpsPort: z.boolean(),
   agentAt: z.number().int(),
   mode: z.enum(["idle", "teach", "follow", "estop"]),
-  busy: z.enum(["camera_on", "camera_off", "check", "vision_on", "vision_off", "joy_on", "joy_off"]).nullable(),
+  busy: z.enum(["camera_on", "camera_off", "check", "vision_on", "vision_off", "joy_on", "joy_off", "wiring"]).nullable(),
   // 수동 조종 — 주소·비밀번호는 이 health 와 함께 로봇 주인에게만 내려간다 (GET 은 requireRobotOwner)
   joy: z.object({
     url: z.string().regex(/^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/),
@@ -100,6 +127,8 @@ export const HealthSchema = z.object({
   joyError: z.string().max(200).nullable().optional(),
   motorLive: z.boolean().optional(),
   motorError: z.string().max(200).nullable().optional(),
+  estopBtn: z.boolean().optional(),      // 본체 E-stop 버튼 감시가 켜져 있나 (버튼이 꽂혔는지는 배선 점검에서)
+  wiring: WiringSchema.optional(),
   devices: z.object({ motorDriver: nb, encoder: nb, camera: nb }).optional(),
   checkedAt: z.number().int().optional(),
   shuttingDown: z.enum(["reboot", "poweroff"]).optional(),

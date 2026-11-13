@@ -26,15 +26,24 @@ from . import config as C
 class EstopButton:
     def __init__(self, on_press: Callable[[], None], on_release: Callable[[], None] | None = None) -> None:
         self.ok = False
+        self.presses = 0      # 배선 점검이 '눌렀다 뗐다'를 확인할 때 쓴다
+        self.releases = 0
         if Button is None:
             print("[estop] gpiozero 없음 — ⚠️ 물리 비상정지 비활성")
             return
         try:
             # pull_up=True: 눌리면 LOW. bounce_time 으로 채터링 무시
             self.btn = Button(C.ESTOP_PIN, pull_up=C.ESTOP_ACTIVE_LOW, bounce_time=0.05)
-            self.btn.when_pressed = on_press
-            if on_release:
-                self.btn.when_released = on_release
+            def pressed():
+                self.presses += 1
+                on_press()
+
+            def released():
+                self.releases += 1
+                if on_release:
+                    on_release()
+            self.btn.when_pressed = pressed
+            self.btn.when_released = released
             self.ok = True
             # 부팅 때 이미 눌려 있으면 곧바로 정지 상태로 시작한다
             if self.btn.is_pressed:
@@ -45,6 +54,9 @@ class EstopButton:
     @property
     def pressed(self) -> bool:
         return self.ok and self.btn.is_pressed
+
+    def counts(self) -> tuple[int, int] | None:
+        return (self.presses, self.releases) if self.ok else None
 
     def close(self) -> None:
         if self.ok:

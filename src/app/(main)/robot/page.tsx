@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { LineChart, Gauge, SlidersHorizontal, Video, FlaskConical, Sigma, TriangleAlert, BatteryWarning, Pause, Play, Map as MapIcon, Eye, ChevronRight, Power } from "lucide-react";
+import { LineChart, Gauge, SlidersHorizontal, Video, FlaskConical, Sigma, TriangleAlert, BatteryWarning, Pause, Play, Map as MapIcon, Eye, ChevronRight, Power, Cable } from "lucide-react";
 import { useRobot } from "./RobotProvider";
 import { sendCommand } from "@/hooks/useRobotStream";
 import SafetyBadge from "@/components/robot/SafetyBadge";
@@ -191,6 +191,7 @@ export default function RobotHome() {
         { href: "/robot/control", icon: SlidersHorizontal, title: "주행 제어 · 코스", desc: "티칭·자동주행·속도 제한·명령 기록", badge: commands.some((c) => c.status === "pending" || c.status === "sent") ? "전송 중" : undefined },
         { href: "/robot/camera", icon: Video, title: "카메라 전체화면", desc: "로봇 눈으로 본 강아지" },
         { href: "/robot/system", icon: Power, title: "로봇 관리", desc: "연결 상태 · 카메라 켜기/끄기 · 점검 · 끄기" },
+        { href: "/robot/system/wiring", icon: Cable, title: "배선 점검", desc: "조립 단계별 부품 연결 · 웹 신호가 구동부·센서까지 가는지" },
       ]} />
       <FolderList title="개발 · 검증 (팀용)" items={[
         { href: "/sim", icon: FlaskConical, title: "시뮬레이션 랩", desc: "SHERPY 7.3 엔진 · 고장 시나리오 실험" },

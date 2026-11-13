@@ -18,8 +18,9 @@ PY="$ROBOT_DIR/.venv/bin/python"
 [ -x "$PY" ] || { echo "❌ $PY 가 없어요. 먼저: cd $ROBOT_DIR && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt"; exit 1; }
 chmod 600 "$ROBOT_DIR/.env"   # 키 파일은 나만 읽기
 
-echo "▶ smbus2 · websockets 설치 (I2C 부품 확인 · 수동 조종)"
+echo "▶ smbus2 · websockets · gpiozero · lgpio 설치 (I2C 부품 확인 · 수동 조종 · E-stop · 배선 점검)"
 "$PY" -m pip install -q smbus2 "websockets>=13"
+"$PY" -m pip install -q gpiozero lgpio || echo "⚠️ gpiozero/lgpio 설치 실패 — E-stop 감시·배선 점검(표시기·HX711)이 '모름'으로 나와요"
 
 if pgrep -f "stream.py|connect_test.py" >/dev/null; then
   echo "⚠️ stream.py 또는 connect_test.py 가 실행 중이에요. Ctrl+C 로 끈 뒤 다시 실행하세요."; exit 1

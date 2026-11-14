@@ -5,6 +5,9 @@
     (노트북) python robot/bridge/vision.py --webcam             ← 파이 없이 노트북 카메라로 판단 로직 시험 (창으로 보기)
     (파이)  python3 robot/bridge/vision.py --show-none          ← 파이 터미널에서 결과만 출력
 
+화면과 인식은 따로 돈다: 카메라는 LIVE_FPS(기본 15)로 찍어 폰 화면에 매 장 보내고(마지막 인식 박스를 덧그림),
+인식은 그중 최신 장만 VISION_FPS 속도로 본다. 그래서 인식이 느려도 화면은 끊기지 않는다.
+
 카메라는 한 프로그램만 쓸 수 있다. 인식 테스트 중에는 영상 송출(MediaMTX)을 끄고 여기서 카메라를 쓴다.
 대신 박스를 그린 사진을 0.5초마다 서버로 올리므로 LTE 핸드폰에서도 볼 수 있다.
 
@@ -43,7 +46,7 @@ ROBOT_DIR = Path(__file__).resolve().parent.parent
 MODELS = ROBOT_DIR / "models"
 LOG_DIR = ROBOT_DIR / "vision_log"
 LOG_MAX = 300           # 저장 표본 최대 개수 (오래된 것부터 지움)
-CAM_W, CAM_H, CAM_FPS = 640, 360, C.VISION_FPS   # 인식이 따라갈 수 있는 만큼만 찍는다 (밀린 옛 사진 방지)
+CAM_W, CAM_H, CAM_FPS = 640, 360, C.LIVE_FPS     # 화면 속도로 찍는다. 인식은 LatestFrame 에서 최신 장만 가져가 밀리지 않는다
 UPLOAD_EVERY = 0.5      # 초 — 웹 사진 갱신 주기 (서버 경유)
 UPLOAD_EVERY_LIVE = 3.0 # 초 — 폰이 직접 보고 있을 땐 서버로는 가끔만 (전력·데이터 절약)
 MARK_KINDS = {"missed": "놓침", "false_stop": "괜히 멈춤", "good": "잘함"}
@@ -90,6 +93,43 @@ class PiCamera:
                 self.proc.wait(timeout=3)
             except subprocess.TimeoutExpired:
                 self.proc.kill()
+
+
+class LatestFrame:
+    """카메라를 제 속도로 계속 읽고 '가장 최근 장'만 들고 있는다.
+    인식이 느려도 밀린 옛 사진이 쌓이지 않고, 화면 송출은 인식과 상관없이 매끄럽게 나간다."""
+
+    def __init__(self, cam) -> None:
+        self.cam = cam
+        self.frame: np.ndarray | None = None
+        self.seq = 0
+        self.dead = False
+        self._cv = threading.Condition()
+        threading.Thread(target=self._loop, daemon=True).start()
+
+    def _loop(self) -> None:
+        try:
+            while True:
+                f = self.cam.read()
+                if f is None:
+                    break
+                with self._cv:
+                    self.frame, self.seq = f, self.seq + 1
+                    self._cv.notify_all()
+        except Exception:  # noqa: BLE001 — 카메라를 닫는 순간 read 가 터질 수 있다
+            pass
+        finally:
+            with self._cv:
+                self.dead = True
+                self._cv.notify_all()
+
+    def wait_newer(self, seq: int, timeout: float = 3.0) -> tuple[np.ndarray | None, int]:
+        """seq 보다 새 장이 오면 (사진, 번호). 카메라가 멈췄거나 시간이 지나면 (None, seq)."""
+        with self._cv:
+            self._cv.wait_for(lambda: self.seq > seq or self.dead, timeout)
+            if self.seq > seq:
+                return self.frame, self.seq
+            return None, seq
 
 
 class WebCam:
@@ -299,17 +339,45 @@ class Vision:
             pass
         os.environ.setdefault("OMP_NUM_THREADS", str(C.VISION_CORES))
 
+    def _live_loop(self, src: LatestFrame, done: threading.Event) -> None:
+        """폰 직접 보기 화면 — 인식과 따로, 카메라 새 장마다(최대 LIVE_FPS) 마지막 인식 결과를 덧그려 보낸다."""
+        seq, gap = 0, 1.0 / C.LIVE_FPS
+        while not done.is_set():
+            if self.live.viewers == 0:
+                done.wait(0.2)
+                continue
+            t = time.monotonic()
+            bgr, seq = src.wait_newer(seq, timeout=1.0)
+            if bgr is None:
+                if src.dead:
+                    break
+                continue
+            res = self.last
+            try:
+                img = draw(bgr, res, self.avoider.p) if res else bgr
+                self.live.publish(res, to_jpeg_b64(img, q=55))
+            except Exception as e:  # noqa: BLE001 — 한 장 실패로 화면 전체를 멈추지 않는다
+                print(f"[vision] 화면 송출 실패: {e}", flush=True)
+            rest = gap - (time.monotonic() - t)
+            if rest > 0:
+                done.wait(rest)
+
     def _run(self, camera) -> None:
+        cam = camera or PiCamera()
+        src = LatestFrame(cam)
+        done = threading.Event()
+        # 화면 송출 스레드는 코어 제한 전에 만든다 — 인식이 맡은 코어를 다 써도 화면은 끊기지 않게
+        threading.Thread(target=self._live_loop, args=(src, done), daemon=True).start()
         self._limit_cpu()
         det = Detector()
-        cam = camera or PiCamera()
-        last_up, last_live, frames, t0, infer_ms = 0.0, 0.0, 0, time.monotonic(), 0.0
-        fps = 0.0
+        last_up, frames, t0, infer_ms = 0.0, 0, time.monotonic(), 0.0
+        fps, seq, gap = 0.0, 0, 1.0 / C.VISION_FPS
         try:
             while not self._stop.is_set():
-                bgr = cam.read()
+                bgr, seq = src.wait_newer(seq)
                 if bgr is None:
-                    self.error = "카메라 영상을 못 받았어요 (영상 송출이 켜져 있거나 케이블 확인)"
+                    if not self._stop.is_set():
+                        self.error = "카메라 영상을 못 받았어요 (영상 송출이 켜져 있거나 케이블 확인)"
                     break
                 ti = time.monotonic()
                 with self._lock:
@@ -327,20 +395,19 @@ class Vision:
                 self._frame, self.last = bgr, res
                 watching = self.live.viewers > 0
                 t_now = time.monotonic()
-                jpg = None
-                if watching and t_now - last_live >= C.LIVE_EVERY:
-                    last_live = t_now
-                    jpg = to_jpeg_b64(draw(bgr, res, p))
-                    self.live.publish(res, jpg)
                 if self.upload and t_now - last_up >= (UPLOAD_EVERY_LIVE if watching else UPLOAD_EVERY):
                     last_up = t_now
-                    jpg = jpg or to_jpeg_b64(draw(bgr, res, p))
+                    jpg = to_jpeg_b64(draw(bgr, res, p))
                     threading.Thread(target=self._put, args=(res, jpg), daemon=True).start()
                 if not self.upload:
                     yield_frame(bgr, res, p)
+                rest = gap - (time.monotonic() - ti)   # 인식은 VISION_FPS 까지만 — 전류·발열 제한
+                if rest > 0:
+                    self._stop.wait(rest)
         except Exception as e:
             self.error = f"인식 중 오류: {str(e)[:150]}"
         finally:
+            done.set()
             cam.close()
             if not self._stop.is_set():   # 오류로 멈췄으면 직접 보기도 닫는다
                 self.live.stop()

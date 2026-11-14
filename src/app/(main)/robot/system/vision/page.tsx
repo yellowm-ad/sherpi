@@ -55,6 +55,18 @@ export default function VisionTest() {
   // 직접 보기 (폰 ↔ 파이 터널) — 연결되면 서버 경유 0.7초 가져오기를 멈춘다
   const [live, setLive] = useState<"off" | "connecting" | "on">("off");
   const [rtt, setRtt] = useState<number | null>(null);
+  // 사진은 React 상태를 거치지 않고 <img> 에 바로 넣는다 — 초당 15장마다 화면 전체를 다시 그리면 폰이 버벅인다
+  const imgRef = useRef<HTMLImageElement>(null);
+  const [hasFrame, setHasFrame] = useState(false);
+  const [frameAt, setFrameAt] = useState(0);
+  const [showFps, setShowFps] = useState<number | null>(null);
+  const frameCount = useRef({ n: 0, t: 0 });
+  const lastUi = useRef(0);
+  const showFrame = useCallback((b64: string) => {
+    const el = imgRef.current;
+    if (el) el.src = `data:image/jpeg;base64,${b64}`;
+    setHasFrame(true); // 이미 true 면 React 가 다시 그리지 않는다
+  }, []);
   const liveUrl = running ? h?.visionLive?.url ?? null : null;
   const liveToken = running ? h?.visionLive?.token ?? null : null;
 
@@ -73,10 +85,12 @@ export default function VisionTest() {
       if (r.ok) {
         const j: VisionRes = await r.json();
         setV(j);
+        if (j.frame) showFrame(j.frame);
+        else setHasFrame(false); // 인식을 끄면 서버가 사진을 비운다
         if (j.result && Date.now() - dirty.current > 3000) setP(j.result.params);
       }
     } catch { /* 다음 주기 */ }
-  }, [robotId]);
+  }, [robotId, showFrame]);
 
   useEffect(() => {
     loadHealth(); loadVision();
@@ -104,18 +118,30 @@ export default function VisionTest() {
       ws = new WebSocket(liveUrl.replace(/^https:/, "wss:"));
       ws.onopen = () => ws?.send(JSON.stringify({ t: "auth", token: liveToken }));
       ws.onmessage = (e) => {
-        let m: { t?: string; result?: VisionResult; frame?: string; id?: number };
+        let m: { t?: string; result?: VisionResult | null; frame?: string; id?: number };
         try { m = JSON.parse(String(e.data)); } catch { return; }
         if (m.t === "hello") {
           setLive("on");
           ping = setInterval(() => ws?.readyState === 1 && ws.send(JSON.stringify({ t: "ping", id: Date.now() })), 2000);
         } else if (m.t === "pong" && typeof m.id === "number") {
           setRtt(Date.now() - m.id);
-        } else if (m.t === "frame" && m.result && typeof m.frame === "string") {
-          const at = new Date().toISOString();
-          setV({ result: m.result, frame: m.frame, at });
-          setNow(Date.now());
-          if (Date.now() - dirty.current > 3000) setP(m.result.params);
+        } else if (m.t === "frame" && typeof m.frame === "string") {
+          showFrame(m.frame); // 사진은 매 장 바로
+          const t = Date.now();
+          const fc = frameCount.current;
+          if (!fc.t) fc.t = t;
+          fc.n += 1;
+          if (t - fc.t >= 1000) { setShowFps((fc.n * 1000) / (t - fc.t)); fc.n = 0; fc.t = t; }
+          // 글자·판단은 초당 4번만 다시 그린다 (인식 결과는 사진보다 느리게 바뀜)
+          if (t - lastUi.current >= 250) {
+            lastUi.current = t;
+            setNow(t);
+            setFrameAt(t);
+            if (m.result) {
+              setV({ result: m.result, frame: null, at: new Date(t).toISOString() });
+              if (t - dirty.current > 3000) setP(m.result.params);
+            }
+          }
         }
       };
       ws.onclose = (e) => {
@@ -123,6 +149,8 @@ export default function VisionTest() {
         ping = null;
         setLive("off");
         setRtt(null);
+        setShowFps(null);
+        frameCount.current = { n: 0, t: 0 };
         if (!closed && e.code !== 4001) retry = setTimeout(open, 3000); // 4001 = 비밀번호 틀림 → health 갱신 기다림
       };
     };
@@ -133,7 +161,7 @@ export default function VisionTest() {
       if (ping) clearInterval(ping);
       ws?.close();
     };
-  }, [liveUrl, liveToken]);
+  }, [liveUrl, liveToken, showFrame]);
 
   const cmd = async (type: string, payload: Record<string, unknown> = {}) => {
     setErr(null);
@@ -180,7 +208,8 @@ export default function VisionTest() {
   const waiting = sent && now - sent.at < 25_000 ? sent.type : null;
   const working = h?.busy === "vision_on" || h?.busy === "vision_off" || !!waiting;
   const r = v?.result ?? null;
-  const ageS = v?.at ? (now - Date.parse(v.at)) / 1000 : Infinity;
+  const lastAt = Math.max(v?.at ? Date.parse(v.at) : 0, frameAt);
+  const ageS = lastAt ? (now - lastAt) / 1000 : Infinity;
   const stale = running && ageS > 4;
   const d = r ? DECISION[r.decision] : null;
 
@@ -220,12 +249,11 @@ export default function VisionTest() {
 
           {/* ── 사진 ── */}
           <section className="relative mt-3 overflow-hidden rounded-2xl bg-ink/90" style={{ aspectRatio: "16 / 9" }}>
-            {v?.frame
-              // eslint-disable-next-line @next/next/no-img-element
-              ? <img src={`data:image/jpeg;base64,${v.frame}`} alt="로봇 카메라 인식 화면" className="h-full w-full object-cover" />
-              : <div className="flex h-full items-center justify-center text-xs text-white/70">사진을 기다리는 중…</div>}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img ref={imgRef} alt="로봇 카메라 인식 화면" className={`h-full w-full object-cover ${hasFrame ? "" : "hidden"}`} />
+            {!hasFrame && <div className="flex h-full items-center justify-center text-xs text-white/70">사진을 기다리는 중…</div>}
             <span className={`absolute right-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-semibold ${stale ? "bg-level-3 text-white" : "bg-black/50 text-white"}`}>
-              {stale ? "끊김" : live === "on" ? "직접 연결" : "서버 경유"} · <span className="tabular">{live === "on" && rtt != null ? `${rtt}ms` : isFinite(ageS) ? `${ageS.toFixed(1)}초 전` : "—"}</span>
+              {stale ? "끊김" : live === "on" ? "직접 연결" : "서버 경유"} · <span className="tabular">{live === "on" && rtt != null ? `${rtt}ms` : isFinite(ageS) ? `${ageS.toFixed(1)}초 전` : "—"}{live === "on" && showFps != null && ` · 화면 ${showFps.toFixed(0)}fps`}</span>
             </span>
           </section>
           {live !== "on" && (

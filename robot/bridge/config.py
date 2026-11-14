@@ -58,7 +58,9 @@ JOY_MAX_HZ       = 30        # 이보다 자주 오는 신호는 건너뜀 (0 �
 
 # ── 자율주행 인식 — 실시간 화면 · 전력 절약 ──
 LIVE_PORT     = 8891        # 인식 화면 직접 보기 (127.0.0.1, 밖에서는 터널로만)
-LIVE_EVERY    = 0.2         # 초 — 직접 보기 사진 간격 (초당 5장)
+# 화면 송출은 인식과 따로 돈다: 카메라를 LIVE_FPS 로 찍어 화면에는 매 장 보내고, 인식은 그중 VISION_FPS 만큼만 본다.
+# 데이터가 부족하면(LTE) .env 에 SHERPY_LIVE_FPS=10 으로 낮춘다.
+LIVE_FPS      = max(5, min(30, int(os.environ.get("SHERPY_LIVE_FPS", "15"))))
 LIVE_MAX_VIEWERS = 3
 # 인식이 CPU 4코어를 다 쓰면 순간 전류가 커져 전원이 약할 때 파이가 재부팅된다(Undervoltage).
 # 코어 수·초당 장수를 줄여 전류를 낮춘다. 5V 5A 정품 어댑터면 4 / 10 으로 올려도 된다.

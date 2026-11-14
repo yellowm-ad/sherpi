@@ -102,7 +102,7 @@ class LiveView:
         self._latest = None
 
     # ── 보내기 (인식 스레드에서 부른다) ──
-    def publish(self, result: dict, jpeg_b64: str) -> None:
+    def publish(self, result: dict | None, jpeg_b64: str) -> None:
         loop, new = self._loop, self._new
         if not loop or not new or not self._viewers:
             return

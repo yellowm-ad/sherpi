@@ -311,7 +311,7 @@ export default function VisionTest() {
       )}
 
       <p className="mt-4 text-center text-[11px] leading-relaxed text-muted">
-        카메라 판단은 보조 수단이에요. 1차 안전장치는 리드줄 장력 정지와 본체 물리 정지 버튼입니다.
+        카메라 판단은 보조 수단이에요. 1차 안전장치는 리드줄 장력 정지와 본체 모터 전원 스위치입니다.
       </p>
     </div>
   );

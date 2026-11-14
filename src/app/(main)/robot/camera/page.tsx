@@ -62,7 +62,7 @@ export default function CameraPage() {
           <Hud label="거리" value={d?.toFixed(2) ?? "—"} unit="m" />
           <Hud label="θ" value={latest?.dogBearingDeg != null ? latest.dogBearingDeg.toFixed(1) : "—"} unit="°" />
         </div>
-        <p className="text-[10px] opacity-60">원격 정지는 보조 수단입니다. 긴급 시 로봇 본체 정지 버튼을 쓰세요.</p>
+        <p className="text-[10px] opacity-60">원격 정지는 보조 수단입니다. 긴급 시 로봇 본체의 모터 전원 스위치를 끄세요.</p>
       </div>
 
       {/* 영상 화면에서도 ESTOP 항상 노출 (PRD F-3 수용기준) */}

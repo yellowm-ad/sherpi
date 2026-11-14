@@ -12,7 +12,7 @@ const C = 2 * Math.PI * R;
  *
  * ⚠️ 안전 정책 (PRD §6 F-2)
  * 원격 정지는 보조 수단이다. 명령이 네트워크를 경유하므로 약 1초의 지연과
- * 단절 가능성이 있다. 1차 안전장치는 로봇의 물리 E-stop 버튼이며,
+ * 단절 가능성이 있다. 1차 안전장치는 로봇 본체의 ESC 전원 스위치(모터 전원 차단)이며,
  * 이 문구를 UI에도 노출한다.
  *
  * 오작동 방지를 위해 1초 길게 누르기로 발동한다.
@@ -86,7 +86,7 @@ export default function EstopButton({ robotId, disabled }: { robotId: number | n
     <div className="pointer-events-none fixed inset-x-0 bottom-24 z-50 mx-auto flex max-w-[480px] flex-col items-end gap-2 px-4 [&>*]:pointer-events-auto">
       {status === "fail" && (
         <p role="alert" className="animate-drop max-w-[200px] rounded-lg bg-level-3 px-3 py-2 text-xs text-white">
-          전송 실패 — 로봇의 물리 정지 버튼을 사용하세요
+          전송 실패 — 로봇 본체의 모터 전원 스위치를 끄세요
         </p>
       )}
       {hint && status === "idle" && (

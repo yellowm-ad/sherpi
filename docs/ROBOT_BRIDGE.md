@@ -23,7 +23,7 @@
 | # | 항목 | 왜 | 상태 |
 |---|---|---|---|
 | 1 | **CSI 케이블 22핀↔15핀 (300mm 이상)** | Pi 5 카메라 포트는 22핀 mini. 카메라 동봉 케이블(15핀 Standard)은 **물리적으로 안 꽂힘** → 영상·경로 기억 주행 전부 불가 | 🔴 추가 구매 |
-| 2 | **E-stop 물리버튼** (KEPB22ERS-11 등) | 안전설계 L3 의 **1차 수단**. 앱 원격 정지는 네트워크를 타는 보조 수단 | 🔴 추가 구매 |
+| 2 | **ESC 전원 스위치를 손 닿는 곳에** | 안전설계 L3 의 **1차 수단** — 파이와 무관하게 모터 전원을 끊음. 앱 원격 정지는 네트워크를 타는 보조 수단. (GPIO17 E-stop 버튼은 선택) | 🟠 위치 옮기기 |
 | 3 | 22AWG 실리콘 전선 · 5A 퓨즈 · 1000µF 커패시터 | Pi 5 GPIO 급전 (§1-2) | 🟠 추가 구매 |
 | 4 | AC-TL80 입력 전압 하한 | 3S 방전 종지 9.9V 에서 5V 유지되는지 **미확인** | ❓ 실측 |
 | 5 | RELUNE 트윈 드럼 구조 | 드럼이 2개면 AS5600 을 어느 축에 붙일지 달라짐 | ❓ 분해 확인 |
@@ -46,12 +46,12 @@
 | TM1637 #1 (RED, 장력) | CLK = GPIO 20, DIO = GPIO 21 | |
 | TM1637 #2 (BLUE, 줄 길이) | CLK = GPIO 19, DIO = GPIO 26 | |
 | GPS UART | GPIO 14 (TXD), GPIO 15 (RXD) | `/dev/ttyAMA0` |
-| E-stop | GPIO 17 | 내부 풀업, 눌리면 LOW |
+| E-stop (선택) | GPIO 17 | 내부 풀업, 눌리면 LOW. 안 달면 '안 눌림'으로 읽혀 그대로 동작 |
 
 상수는 전부 `robot/bridge/config.py` 에 있습니다.
 
 ```
-3S LiPo ─ XT60 ─┬─→ [80A FOC ESC] ─→ 모터
+3S LiPo ─ XT60 ─┬─→ [80A FOC ESC] ─→ 모터      ← ESC 전원 스위치 = 1차 비상 정지 (차체 뒤쪽, 손 닿는 곳)
                 │        └─ BEC 6V ───→ 조향 서보 (PCA9685 CH0)
                 │           (변속 서보는 미연결 — 조종기로 저속단에 두고 고정, SHERPY_GEAR_SERVO=off)
                 └─→ [AC-TL80 5V 5A] ─ 22AWG ─ 5A 퓨즈 ─┬─ 1000µF ─→ Pi 5 핀2(5V) / 핀6(GND)
@@ -62,7 +62,7 @@ Pi 5
  ├─ GPIO 5/6 ─→ [HX711] ─→ [SBA-50L]
  ├─ GPIO 20/21, 19/26 ─→ [TM1637 RED], [TM1637 BLUE]
  ├─ GPIO 14/15 ─→ [GPS]
- ├─ GPIO 17 ─→ [E-stop 버튼] ─ GND
+ ├─ GPIO 17 ─→ [E-stop 버튼 (선택)] ─ GND
  └─ CAM/DISP0 (22핀) ─ 22↔15핀 케이블 ─→ [Camera Module 3 Wide]
 ```
 
@@ -227,7 +227,7 @@ python3 -m bridge.display        # 7세그 두 개에 장력·줄 길이 흉내�
 | `bridge/gps.py` | NMEA 파싱 → 위치·**실측 속도**·방위·위성 수 |
 | `bridge/display.py` | TM1637 ×2 — RED 장력(N 정수, 16N↑ 점멸, 35N↑ 전체 점멸) / BLUE 줄 길이(cm 정수, 2.76m↑ 점멸) |
 | `sherpy_core/` | 🆕 25 Hz 처리 파이프라인 — 장력 보정·릴 길이·카메라 θ → EKF 강아지 위치 → L0~L3 → v·δ·릴 명령 ([MATH_MODEL.md](MATH_MODEL.md)) |
-| `bridge/estop.py` | E-stop 물리버튼 → 즉시 `hal.estop()` |
+| `bridge/estop.py` | (선택) GPIO E-stop 버튼 → 즉시 `hal.estop()`. 버튼이 없어도 문제없음 |
 | `hal_pca9685.py` | 조향·스로틀·변속 PWM |
 
 ### walkbot 에서 바꿔야 할 것
@@ -253,7 +253,7 @@ hal = PCA9685HAL()
 hal.set_gear(low=True)        # 산책 속도는 저속단
 
 def emergency():
-    """1차 안전장치 — 네트워크와 무관하게 즉시 정지"""
+    """소프트웨어 정지 — 1차 차단은 ESC 전원 스위치"""
     hal.estop()
     state.mode = "estop"
 
@@ -445,7 +445,7 @@ journalctl -u sherpy-bridge -f
 6. 릴을 당겨 `leash_len_m` 과 **BLUE 7세그**가 변하는지
 7. 실외에서 `python3 -m bridge.gps` → 위성 4개 이상, 걸으면 속도가 오르는지
 8. 서버 대시보드에 값이 2초 내로 올라오고 **실측 속도(GPS)** 칸이 채워지는지
-9. **E-stop 버튼 → 즉시 정지**, 버튼을 누른 채로 앱 [정지 해제]가 안 먹는지
+9. **바퀴를 띄우고 굴리는 중에 ESC 전원 스위치 OFF → 즉시 정지** (파이·앱은 켜진 채로). 다시 켤 땐 앱이 중립인지 확인 후 ESC ON. (E-stop 버튼을 달았다면: 누르면 정지, 누른 채로 [정지 해제]가 안 먹는지)
 10. 앱에서 ESTOP → 2초 내 정지하는지 (보조 수단)
 11. **와이파이를 끊어서 3초 뒤 로봇이 스스로 멈추는지** ← 워치독 검증
 

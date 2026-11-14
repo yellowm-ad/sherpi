@@ -184,7 +184,7 @@ export default function RobotSystem() {
       </section>
 
       <p className="mt-4 text-center text-[11px] leading-relaxed text-muted">
-        원격 조작은 보조 수단입니다. 긴급 상황에서는 로봇 본체의 물리 정지 버튼을 사용하세요.<br />
+        원격 조작은 보조 수단입니다. 긴급 상황에서는 로봇 본체의 모터 전원 스위치를 끄세요.<br />
         영상은 파이와 같은 와이파이/핫스팟에 있는 기기에서 가장 잘 보여요.
       </p>
 

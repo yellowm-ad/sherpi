@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Cable, Loader, Check, X, Minus, ArrowDown, Hand, Hash } from "lucide-react";
+import { Cable, Loader, Check, X, Minus, ArrowDown, Hash } from "lucide-react";
 import { useRobot } from "../../RobotProvider";
 import { sendCommand } from "@/hooks/useRobotStream";
 import PageHeader from "@/components/ui/PageHeader";
@@ -112,8 +112,6 @@ export default function WiringCheck() {
             <div className="h-full bg-sherpy-600 transition-[width] duration-200" style={{ width: `${Math.min(100, (elapsed / (WATCH_SEC + 4)) * 100)}%` }} />
           </div>
           <ul className="mt-3 space-y-2 text-sm">
-            <li className="flex items-start gap-2"><Hand size={18} className="mt-0.5 shrink-0 text-sherpy-600" />
-              <span><b>지금 E-stop 버튼을 한 번 눌렀다 떼세요</b> <span className="text-muted">(파이가 명령을 받은 뒤 {WATCH_SEC}초 동안 지켜봐요. 아직 버튼이 없으면 넘어가세요)</span></span></li>
             <li className="flex items-start gap-2"><Hash size={18} className="mt-0.5 shrink-0 text-sherpy-600" />
               <span>본체 표시기에 <b className="tabular text-base">{String(req.code).padStart(4, "0")}</b> 가 뜨는지 보세요</span></li>
           </ul>
@@ -229,7 +227,6 @@ function stageList(w: Wiring, h: RobotHealth): Stage[] {
   const p = w.pca9685;
   const hx = w.hx711;
   const g = w.gps;
-  const es = w.estop;
   const tmItem = (name: string, t: Wiring["tmRed"], pins: string): Item => ({
     label: name, ok: t?.ok ?? null,
     value: t?.ok ? `${String(t.code ?? 0).padStart(4, "0")} 표시` : t?.ok === false ? "응답 없음" : t?.error ?? "—",
@@ -266,12 +263,6 @@ function stageList(w: Wiring, h: RobotHealth): Stage[] {
     { no: "5", title: "표시기 ①·② (TM1637)", items: [
       tmItem("① 장력", w.tmRed, "38번(GPIO20)·40번(GPIO21)"),
       tmItem("② 줄 길이", w.tmBlue, "35번(GPIO19)·37번(GPIO26)"),
-    ] },
-    { no: "6", title: "E-stop 버튼", items: [
-      { label: "눌렀다 뗌 감지", ok: es?.ok ?? null,
-        value: es?.ok ? `눌림 ${es.pressed} · 뗌 ${es.released}` : es?.error ?? (es ? (es.pressed ? "눌림만 감지 — 떼기 전 끝남" : "누름 못 봄") : "—"),
-        hint: h.estopBtn === false ? "파이에서 버튼 감시가 꺼져 있어요 (gpiozero·lgpio 설치: bash robot/install_agent.sh)." :
-          "점검하는 6초 안에 눌렀다 떼야 ✓. 그래도 안 되면: 버튼 NO 단자 → 11번 핀(GPIO17), 다른 단자 → GND 레일." },
     ] },
     { no: "7", title: "장력 HX711 + 로드셀", items: [
       { label: "HX711 대답", ok: hx?.ok ?? null, value: hx?.ok ? "연결됨" : hx?.ok === false ? "응답 없음" : hx?.error ?? "—",

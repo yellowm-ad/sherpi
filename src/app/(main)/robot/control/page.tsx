@@ -174,7 +174,7 @@ export default function RobotControl() {
         </section>
       ) : null}
 
-      <p className="mt-4 mb-28 text-center text-[11px] leading-relaxed text-muted">원격 정지는 보조 수단입니다.<br />긴급 상황에서는 로봇 본체의 물리 정지 버튼을 사용하세요.</p>
+      <p className="mt-4 mb-28 text-center text-[11px] leading-relaxed text-muted">원격 정지는 보조 수단입니다.<br />긴급 상황에서는 로봇 본체의 모터 전원 스위치를 끄세요.</p>
       <EstopButton robotId={robotId} disabled={offline} />
 
       <Sheet open={pickOpen} title="주행할 코스 선택" cancelLabel="닫기" onClose={() => setPickOpen(false)}>

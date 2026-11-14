@@ -158,7 +158,7 @@ export default function LiveWalk() {
           <Square size={16} /> 산책 종료
         </button>
         <p className="mt-3 mb-28 text-center text-[11px] leading-relaxed text-muted">
-          원격 정지는 보조 수단입니다. 긴급 상황에서는 로봇 본체의 물리 정지 버튼을 사용하세요.
+          원격 정지는 보조 수단입니다. 긴급 상황에서는 로봇 본체의 모터 전원 스위치를 끄세요.
         </p>
       </div>
 

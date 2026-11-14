@@ -24,6 +24,7 @@
   `src/lib/robot/types.ts` 의 `THRESHOLDS` 는 로봇의 `walkbot/config.py`·`robot/bridge/config.py`·
   `robot/sherpy_core/params.py` 와 같은 값이어야 한다 (SHERPY 7.3: 경고 16 N · 정지 35 N · 릴 1.2~3.0 m). 한쪽만 바꾸면 앱 표시와 로봇 동작이 어긋난다.
 - 원격 정지를 **1차 안전장치로 설명하는 문구를 쓰지 않는다.** 보조 수단이다.
+  1차 안전장치는 **본체 ESC 전원 스위치**(모터 전원 차단)다. GPIO17 E-stop 버튼은 선택 사항 (2026-11-14 결정).
 - 마켓·인구밀집도에 실제 API를 붙이지 않는다. **명목상 기능**으로 확정됐다 (PRD §3-2).
 
 ---
